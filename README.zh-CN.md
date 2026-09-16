@@ -92,6 +92,8 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 **M153 CROWS II**（Common Remotely Operated Weapon Station，通用遥控武器站）把车长那挺暴露在外的
 .50 机枪换成遥控的 M2HB 武器站：车长在装甲下瞄准射击，由稳定式瞄具、激光测距仪和火控计算机完成弹道解算。
 
+![M153 CROWS II 热成像瞄具，15X，已锁定目标](images/crows-thermal-sight.jpg)
+
 ## 怎么打开
 
 在 `Bin/UserData/MelonPreferences.cfg` 的 `[M1A1Config]` 节：

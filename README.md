@@ -92,6 +92,8 @@ The **M153 CROWS II** (Common Remotely Operated Weapon Station) replaces the com
 with a remotely operated M2HB station: the commander aims and fires it from under armour, with a stabilized
 sight, a laser rangefinder and a fire-control computer doing the ballistic work.
 
+![M153 CROWS II thermal sight at 15X with a target locked](images/crows-thermal-sight.jpg)
+
 ## Enabling it
 
 In `Bin/UserData/MelonPreferences.cfg`, section `[M1A1Config]`:
