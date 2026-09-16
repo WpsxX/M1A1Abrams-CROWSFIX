@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# M1A1Abrams build output (produced by build.ps1)
+deployed/
+tests/bin/
+tests/obj/

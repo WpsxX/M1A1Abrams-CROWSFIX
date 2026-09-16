@@ -1,4 +1,4 @@
-﻿using GHPC.Camera;
+using GHPC.Camera;
 using GHPC.Equipment.Optics;
 using GHPC.Player;
 using UnityEngine;
@@ -19,7 +19,7 @@ namespace M1A1Abrams
         {
             if (!__instance.Unit.transform.GetComponentInChildren<CITV>(true)) return true;
           
-            __instance.DisableCrewMemberBase(CrewPosition.Gunner);
+            ModUtil.Reflect.Call(__instance, "DisableCrewMemberBase", CrewPosition.Gunner);
 
             if (__instance.GetCrewBrain(CrewPosition.Commander).Incapacitated)
             {
@@ -120,7 +120,7 @@ namespace M1A1Abrams
         }
 
         void Update() {
-            CameraSlot cam_slot = CameraManager.Instance._currentCamSlot;
+            CameraSlot cam_slot = ModUtil.Reflect.Get<CameraSlot>(CameraManager.Instance, "_currentCamSlot");
             if (cam_slot != null && cam_slot.GetComponent<CITV>() != null)
             {
                 monitor.SetActive(true);
@@ -182,25 +182,27 @@ namespace M1A1Abrams
 
             PostProcessVolume post_vol = post.transform.Find("FLIR Only Volume").GetComponent<PostProcessVolume>();
             post_vol.enabled = true;
-            nods_snv._postVolume = post_vol.GetComponent<PostProcessVolume>();
+            ModUtil.Reflect.Set(nods_snv, "_postVolume", post_vol);
         }
 
         void Update() {
-            if (camera.commanderHead == null || camera.commanderHead.GetComponent<CITV>() == null)
+            Transform commander_head = ModUtil.Reflect.Get<Transform>(camera, "commanderHead");
+
+            if (commander_head == null || commander_head.GetComponent<CITV>() == null)
             {
                 model.SetActive(true);
-                camera.aimSensitivity3P = 5f;
+                ModUtil.Reflect.Set(camera, "aimSensitivity3P", 5f);
                 return;
             }
 
-            if (camera.commanderHead.gameObject.GetInstanceID() != id)
+            if (commander_head.gameObject.GetInstanceID() != id)
             {
                 model.SetActive(true);
                 return;
             }
 
             curr_sens = 1.25f * (nods.CurrentFov / 60f);
-            camera.aimSensitivity3P = curr_sens;
+            ModUtil.Reflect.Set(camera, "aimSensitivity3P", curr_sens);
             model.SetActive(false);
         }
     }

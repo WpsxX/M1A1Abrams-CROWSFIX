@@ -1,7 +1,8 @@
-﻿using MelonLoader;
+using MelonLoader;
 using UnityEngine;
 using GHPC.State;
 using System.Collections;
+using GHPC.AI;
 using GHPC.Weapons;
 using GHPC.Equipment.Optics;
 using GHPC.Vehicle;
@@ -63,7 +64,8 @@ namespace M1A1Abrams
 
         public static MelonPreferences_Entry<bool> crows_m1e1;
         public static MelonPreferences_Entry<bool> crows_m1a1;
-        public static MelonPreferences_Entry<bool> crows_raufoss;
+        public static MelonPreferences_Entry<string> crows_ammo;
+        public static MelonPreferences_Entry<bool> m2_coax;
         public static MelonPreferences_Entry<bool> crows_alt_placement;
 
         public static MelonPreferences_Entry<bool> m1_to_m1ip;
@@ -72,17 +74,16 @@ namespace M1A1Abrams
         public static MelonPreferences_Entry<bool> original_rack_size_m1ip;
 
         static WeaponSystemCodexScriptable gun_m256;
-        static WeaponSystemCodexScriptable gun_m256a1;
-
-        static GameObject addon_turret;
-        static GameObject addon_hull;
-        static GameObject addon_turret_l55;
 
         public static Vector2Int flir_gen2_res = new Vector2Int(1024, 576);
         public static Vector2Int flir_gen3_res = new Vector2Int(1366, 768);
 
         public static void Config(MelonPreferences_Category cfg)
         {
+            PresetManager.ClearAll();
+            preset_manager_m1 = null;
+            preset_manager_m1ip = null;
+
             use_preset_pool = cfg.CreateEntry<bool>("Use Preset Bundle", false);
             target_preset_m1 = cfg.CreateEntry<string>("Preset Bundle Path (M1)", "m1a1assets/PresetBundles/ExampleM1");
             target_preset_m1ip = cfg.CreateEntry<string>("Preset Bundle Path (M1IP)", "m1a1assets/PresetBundles/ExampleM1IP");
@@ -104,8 +105,10 @@ namespace M1A1Abrams
 
             sabot_m1 = cfg.CreateEntry<string>("AP Round (M1E1)", "M827");
             sabot_m1.Description = "Customize which rounds M1A1s/M1E1s use";
-            sabot_m1.Comment = "M827, M829, M829A1, M829A2, M829A3";
+            sabot_m1.Comment = "M827, M829, M829A1, M829A2, M829A3, M829A4";
             sabot_m1ip = cfg.CreateEntry<string>("AP Round (M1A1)", "M829");
+            sabot_m1ip.Description = "Customize which rounds M1A1s/M1E1s use";
+            sabot_m1ip.Comment = "M827, M829, M829A1, M829A2, M829A3, M829A4";
 
             heat_m1 = cfg.CreateEntry<string>("HEAT Round (M1E1)", "M830");
             heat_m1.Comment = "M830, M830A1 (has proximity fuse that can be toggled by double tapping the ammo 2 key)";
@@ -145,6 +148,39 @@ namespace M1A1Abrams
             m1_to_m1ip = cfg.CreateEntry<bool>("M1 -> M1IP", false);
             m1_to_m1ip.Description = "Convert all M1s to M1IPs (will still use M1E1 settings)";
 
+            // Keep installation switches compatible; migrate the old ammo bool below.
+            crows_m1e1 = cfg.CreateEntry<bool>("CROWS (M1E1)", false);
+            crows_m1e1.Description = "Replaces the commander's exposed .50 cal with the M153 CROWS II remote weapon station.";
+            crows_m1a1 = cfg.CreateEntry<bool>("CROWS (M1A1)", false);
+
+            // Saved new selections take precedence over old boolean switches.
+            string legacyAmmo = LegacyFlagInFile("Use Mk 211 Mod 0")
+                || LegacyFlagInFile("CROWS Raufoss") || LegacyFlagInFile("CROWS: Raufoss Ammo (Global)")
+                ? CrowsAmmoRules.Mk211
+                : LegacyFlagInFile("M2 SLAP") ? CrowsAmmoRules.M903 : CrowsAmmoRules.M8;
+            crows_ammo = cfg.CreateEntry<string>("CROWS/M2 Ammo", legacyAmmo);
+            crows_ammo.Comment = "M8 API, Mk 211 Mod 0, M903 SLAP (4 M903 + 1 M962 SLAP-T). Shared with M2 Coax; reload mission after changing.";
+            cfg.DeleteEntry("Use Mk 211 Mod 0");
+            cfg.DeleteEntry("CROWS Raufoss");
+            cfg.DeleteEntry("CROWS: Raufoss Ammo (Global)");
+            cfg.DeleteEntry("M2 SLAP");
+            m2_coax = cfg.CreateEntry<bool>("M2 Coax", false);
+            m2_coax.Comment = "Replace the coaxial machine gun with an M2HB and bind it to the CROWS/M2 ammunition selection.";
+
+            crows_alt_placement = cfg.CreateEntry<bool>("Alternative Position", false);
+            crows_alt_placement.Comment = "Moves the CROWS to the right side of the commander instead of directly in front.";
+
+            // The station's manual slew - traverse and elevation with nothing locked, per magnification -
+            // is not a setting. It is fixed in CrowsAimLock: the rated 90/50 at 1X, scaled by the sight's
+            // field of view above it so the four magnifications move the picture at the same speed.
+
+            // Keys that this build does not declare itself are not exposed as entries by
+            // MelonLoader, so the ones from other builds are read straight out of the file.
+            AdoptLegacyFlag(crows_m1e1, "CROWS (M1E1) <DISABLED>");
+            AdoptLegacyFlag(crows_m1a1, "CROWS (M1A1) <DISABLED>");
+            AdoptLegacyFlag(crows_alt_placement, "CROWS Alt Placement", "CROWS: Alternate Placement (Global)");
+
+
             if (use_preset_pool.Value)
             {
                 preset_manager_m1 = new PresetManager<M1Preset>(target_preset_m1.Value);
@@ -152,9 +188,152 @@ namespace M1A1Abrams
             }
         }
 
+        /// <summary>
+        /// Reads a CROWS switch left behind by another build of this mod and turns the current
+        /// entry on when that old key was enabled.
+        ///
+        /// MelonLoader keeps keys it does not know about in MelonPreferences.cfg but does not
+        /// expose them as entries (HasEntry returns false), so the file itself is parsed.
+        /// The old keys are never modified, which makes this idempotent and reversible.
+        /// </summary>
+        private static void AdoptLegacyFlag(MelonPreferences_Entry<bool> target, params string[] legacy_names)
+        {
+            if (target == null || target.Value)
+            {
+                return;
+            }
+
+            foreach (string legacy_name in legacy_names)
+            {
+                try
+                {
+                    if (!LegacyFlagInFile(legacy_name))
+                    {
+                        continue;
+                    }
+
+                    target.Value = true;
+                    return;
+                }
+                catch (System.Exception)
+                {
+                    // A leftover key must never stop the mod from loading.
+                }
+            }
+        }
+
+        private static bool LegacyFlagInFile(string name)
+        {
+            string path = System.IO.Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory, "MelonPreferences.cfg");
+
+            if (!System.IO.File.Exists(path))
+            {
+                return false;
+            }
+
+            bool in_category = false;
+
+            foreach (string raw_line in System.IO.File.ReadAllLines(path))
+            {
+                string line = raw_line.Trim();
+
+                if (line.Length == 0 || line.StartsWith("#"))
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("["))
+                {
+                    in_category = line == "[M1A1Config]";
+                    continue;
+                }
+
+                if (!in_category)
+                {
+                    continue;
+                }
+
+                int separator = line.IndexOf('=');
+
+                if (separator < 0)
+                {
+                    continue;
+                }
+
+                string key = line.Substring(0, separator).Trim().Trim('"');
+
+                if (!string.Equals(key, name, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string value = line.Substring(separator + 1).Trim();
+                int comment = value.IndexOf('#');
+
+                if (comment >= 0)
+                {
+                    value = value.Substring(0, comment).Trim();
+                }
+
+                return value.Equals("true", System.StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        private static readonly System.Collections.Generic.HashSet<int> converted_vehicle_ids = new System.Collections.Generic.HashSet<int>();
+
+        internal static void ResetConversionState()
+        {
+            converted_vehicle_ids.Clear();
+            CrowsAmmo.Reset();
+        }
+
+        /// <summary>
+        /// The Abrams prefab already contains an upright two-antenna decoration. Select that
+        /// configuration at runtime when CROWS is installed so the rear whips do not intersect
+        /// the station. This deliberately changes only the spawned vehicle instance; the unpacked
+        /// prefab remains untouched and no per-frame component or static reference is added.
+        /// </summary>
+        private static void RaiseAbramsAntennas(Vehicle vic)
+        {
+            if (vic == null)
+            {
+                return;
+            }
+
+            Transform antennas = vic.transform.Find("IPM1_rig/HULL/TURRET/Turret Scripts/antennas")
+                ?? vic.transform.Find("IPM1_rig/HULL/TURRET/antennas");
+
+            if (antennas == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < antennas.childCount; i++)
+            {
+                Transform configuration = antennas.GetChild(i);
+                bool upright = configuration.name == "both untied";
+
+                if (upright)
+                {
+                    configuration.gameObject.SetActive(true);
+                }
+                else if (configuration.name == "both tied" || configuration.name == "left tied right not")
+                {
+                    configuration.gameObject.SetActive(false);
+                }
+            }
+        }
+
         private static void HandleConversion(Vehicle vic)
         {
             if (vic == null) return;
+            int vehicle_id = vic.GetInstanceID();
+            if (!converted_vehicle_ids.Add(vehicle_id)) return;
+
+            // Guard against repeated PlayerReady callbacks converting one vehicle twice.
+            if (vic.GetComponentInChildren<CrowsAutoTrack>(true) != null) return;
 
             GameObject vic_go = vic.gameObject;
 
@@ -172,10 +351,10 @@ namespace M1A1Abrams
 
             MPATManager mpat_manager = vic_go.AddComponent<MPATManager>();
             mpat_manager.AmmoCachedIdx = Ammo_120mm.ammo_m830a1.CachedIndex;
-            mpat_manager.AmmoKeyIdx = 1;
 
             bool is_m1ip = vic.UniqueName == "M1IP Abrams" && vic.GetComponent<PreviouslyM1>() == null;
-            bool player_controlled = vic.GetInstanceID() == PlayerInput.Instance.CurrentPlayerUnit.GetInstanceID();
+            var playerUnit = PlayerInput.Instance?.CurrentPlayerUnit;
+            bool player_controlled = playerUnit != null && vic.gameObject == playerUnit.gameObject;
 
             int cfg_flir_gen = is_m1ip ? flir_gen_m1ip.Value : flir_gen_m1.Value;
             bool cfg_digital_enhancement = is_m1ip ? digital_enchancement_m1a1.Value : digital_enchancement_m1e1.Value;
@@ -193,7 +372,7 @@ namespace M1A1Abrams
             if (use_preset_pool.Value)
             {
                 PresetManager<M1Preset> preset_manager = is_m1ip ? preset_manager_m1ip : preset_manager_m1;
-                M1Preset preset = preset_manager.ChoosePreset();
+                M1Preset preset = preset_manager == null ? null : preset_manager.ChoosePreset();
                 PresetMarker marker = vic.GetComponent<PresetMarker>();
 
                 if (marker != null)
@@ -201,30 +380,33 @@ namespace M1A1Abrams
                     preset = (M1Preset)marker.Preset;
                 }
 
-                if (preset_manager.HasPlayerReservedPreset && player_controlled)
+                if (preset_manager != null && preset_manager.HasPlayerReservedPreset && player_controlled)
                 {
                     preset = preset_manager.PlayerReservedPreset;
                 }
 
-                cfg_flir_gen = preset.FLIRGeneration;
-                cfg_digital_enhancement = preset.DigitalEnhancement;
-                cfg_du_gen = preset.DUGeneration;
-                cfg_du_package = preset.DUArmour;
-                cfg_citv = preset.CITV;
-                cfg_m256 = preset.M256Gun;
-                cfg_vanilla_ammo_cap = preset.VanillaAmmoCapacity;
-                cfg_m829_count = preset.APCount;
-                cfg_m830_count = preset.HEATCount;
-                cfg_ap_type = preset.APRound;
-                cfg_heat_type = preset.HEATRound;
-                cfg_rotate_azimuth = preset.RotateAzimuth;
+                if (preset != null)
+                {
+                    cfg_flir_gen = preset.FLIRGeneration;
+                    cfg_digital_enhancement = preset.DigitalEnhancement;
+                    cfg_du_gen = preset.DUGeneration;
+                    cfg_du_package = preset.DUArmour;
+                    cfg_citv = preset.CITV;
+                    cfg_m256 = preset.M256Gun;
+                    cfg_vanilla_ammo_cap = preset.VanillaAmmoCapacity;
+                    cfg_m829_count = preset.APCount;
+                    cfg_m830_count = preset.HEATCount;
+                    cfg_ap_type = preset.APRound;
+                    cfg_heat_type = preset.HEATRound;
+                    cfg_rotate_azimuth = preset.RotateAzimuth;
+                }
 
                 Component.Destroy(marker);
             }
 
             if (cfg_m256)
             {
-                vic._friendlyName = (vic.FriendlyName == "M1IP") ? "M1A1" : "M1E1";
+                Reflect.Set(vic, "_friendlyName", (vic.FriendlyName == "M1IP") ? "M1A1" : "M1E1");
             }
 
             if (cfg_flir_gen > 1)
@@ -246,16 +428,16 @@ namespace M1A1Abrams
                 digital_enhance.Add(1f, 0.02f, 0.29f);
             }
 
-            if (cfg_du_package && vic._uniqueName == "M1IP Abrams")
+            if (cfg_du_package && vic.UniqueName == "M1IP Abrams")
             {
                 vic_go.GetComponent<Rigidbody>().mass = 62781.3776f;
-                vic._friendlyName += cfg_du_gen > 1 ? "HC" : "HA";
+                Reflect.Set(vic, "_friendlyName", vic.FriendlyName + (cfg_du_gen > 1 ? "HC" : "HA"));
 
                 GameObject turret_cheeks = vic.transform.Find("IPM1_rig/HULL/TURRET").GetComponent<LateFollowTarget>()
-                    ._lateFollowers[0].transform.Find("Turret_Armor/cheeks composite arrays").gameObject;
+                    .LateFollowers[0].transform.Find("Turret_Armor/cheeks composite arrays").gameObject;
 
                 VariableArmor var_armour = turret_cheeks.GetComponent<VariableArmor>();
-                var_armour._armorType = DUArmour.du_armor_codexes[cfg_du_gen - 1];
+                Reflect.Set(var_armour, "_armorType", DUArmour.du_armor_codexes[cfg_du_gen - 1]);
 
                 AarVisual cheek_visual = turret_cheeks.GetComponent<AarVisual>();
 
@@ -279,25 +461,26 @@ namespace M1A1Abrams
                 c.transform.localEulerAngles = new Vector3(0f, 0f, 0f);
 
                 c.transform.SetParent(vic.transform.Find("IPM1_rig/HULL/TURRET").GetComponent<LateFollowTarget>()
-                    ._lateFollowers[0].transform, true);
+                    .LateFollowers[0].transform, true);
 
                 CITV citv_component = vic.DesignatedCameraSlots[0].LinkedNightSight.gameObject.AddComponent<CITV>();
                 citv_component.model = c;
 
-                if (vic.GetInstanceID() == PlayerInput.Instance.CurrentPlayerUnit.GetComponent<Vehicle>().GetInstanceID())
+                if (player_controlled && CameraManager.Instance != null && CameraSlot.ActiveInstance != null)
                 {
                     CameraManager.Instance.UpdateLightMode(mode: NightVisionType.Thermal);
-                    CameraSlot.ActiveInstance.ThisActiveChanged(true);
+                    Reflect.Call(CameraSlot.ActiveInstance, "ThisActiveChanged", true);
                 }
 
                 c.transform.Find("assembly").GetComponent<UniformArmor>().Unit = vic;
                 c.transform.Find("glass").GetComponent<UniformArmor>().Unit = vic;
 
-                vic._targetSpotterSettings._periscopeFOV = 120f;
-                vic.TargetSpotterSettings._sightDistance = 4500f;
-                vic.TargetSpotterSettings._nightSightDistanceIdeal = 4500f;
-                vic.TargetSpotterSettings._nightSightDistancePassive = 4500f;
-                vic._friendlyName += "+";
+                TargetSpotterSettings spotter = vic.TargetSpotterSettings;
+                Reflect.Set(spotter, "_periscopeFOV", 120f);
+                Reflect.Set(spotter, "_sightDistance", 4500f);
+                Reflect.Set(spotter, "_nightSightDistanceIdeal", 4500f);
+                Reflect.Set(spotter, "_nightSightDistancePassive", 4500f);
+                Reflect.Set(vic, "_friendlyName", vic.FriendlyName + "+");
 
                 if (vic.UniqueName == "M1IP Abrams")
                 {
@@ -311,19 +494,19 @@ namespace M1A1Abrams
 
             if ((vic.FriendlyName == "M1A1HA+" || vic.FriendlyName == "M1A1HC+") && cfg_rotate_azimuth)
             {
-                vic._friendlyName = "M1A2";
+                Reflect.Set(vic, "_friendlyName", "M1A2");
             }
 
             if (vic.FriendlyName == "M1A2" && cfg_flir_gen > 2)
             {
-                vic._friendlyName += " SEP";
+                Reflect.Set(vic, "_friendlyName", vic.FriendlyName + " SEP");
             }
 
             if (cfg_m256)
             {
                 main_gun_info.Name = "120mm gun M256";
                 main_gun.Impulse = 68000;
-                main_gun.CodexEntry = gun_m256;
+                Reflect.Set(main_gun, "CodexEntry", gun_m256);
                 main_gun.WeaponSound.SingleShotEventPaths[0] = "event:/Weapons/canon_125mm-2A46";
 
                 GameObject dummy_tube = new GameObject("dummy tube");
@@ -349,31 +532,19 @@ namespace M1A1Abrams
                 muzzleFlashes.GetChild(4).transform.localScale = new Vector3(1.3f, 1.3f, 1f);
 
                 // convert ammo
-                string ap_idx = cfg_ap_type.ToUpper();
-                string heat_idx = cfg_heat_type.ToUpper();
-                AmmoClipCodexScriptable sabotClipCodex = Ammo_120mm.ap[ap_idx];
-                AmmoClipCodexScriptable heatClipCodex = Ammo_120mm.heat[heat_idx];
+                AmmoClipCodexScriptable sabotClipCodex;
+                AmmoClipCodexScriptable heatClipCodex;
+                if (!Ammo_120mm.ap.TryGetValue((cfg_ap_type ?? "").Trim().ToUpperInvariant(), out sabotClipCodex))
+                    sabotClipCodex = Ammo_120mm.ap[is_m1ip ? "M829" : "M827"];
+                if (!Ammo_120mm.heat.TryGetValue((cfg_heat_type ?? "").Trim().ToUpperInvariant(), out heatClipCodex))
+                    heatClipCodex = Ammo_120mm.heat["M830"];
 
                 LoadoutManager loadoutManager = vic.GetComponent<LoadoutManager>();
-                loadoutManager.TotalAmmoCounts = new int[] { cfg_m829_count, cfg_m830_count };
-                loadoutManager.LoadedAmmoList.AmmoClips = new AmmoClipCodexScriptable[] { sabotClipCodex, heatClipCodex };
-
-                if (!cfg_vanilla_ammo_cap)
-                {
-                    loadoutManager._totalAmmoCount = 40;
-
-                    for (int i = 0; i <= 2; i++)
-                    {
-                        GHPC.Weapons.AmmoRack rack = loadoutManager.RackLoadouts[i].Rack;
-                        rack.ClipCapacity = i == 2 ? 4 : 18;
-                        Util.EmptyRack(rack);
-                    }
-                }
-
-                loadoutManager.SpawnCurrentLoadout();
-                main_gun.Feed.AmmoTypeInBreech = null;
-                main_gun.Feed.Start();
-                loadoutManager.RegisterAllBallistics();
+                MainGunLoadout.Apply(loadoutManager, new[] { sabotClipCodex, heatClipCodex },
+                    new[] { System.Math.Max(1, cfg_m829_count), cfg_m830_count }, cfg_vanilla_ammo_cap);
+                MainGunLoadout.Refill(main_gun.Feed);
+                Reflect.Call(loadoutManager, "RefreshSnapshot");
+                Reflect.Call(loadoutManager, "RegisterAllBallistics");
 
                 vic_go.transform.Find("IPM1_rig/HULL/TURRET/GUN/turret_gun").gameObject.SetActive(false);
 
@@ -382,13 +553,75 @@ namespace M1A1Abrams
                     vic_go.transform.Find("IPM1_rig/HULL/TURRET/M1 camo net/turret_gun").gameObject.SetActive(false);
                 }
 
-                GAS.Create(Ammo_120mm.ap[sabot_m1ip.Value].ClipType.MinimalPattern[0], Ammo_120mm.heat[heat_m1ip.Value].ClipType.MinimalPattern[0]);
+                GAS.Create(sabotClipCodex.ClipType.MinimalPattern[0], heatClipCodex.ClipType.MinimalPattern[0]);
                 GAS.Add(gas, optic.slot.ExclusiveWeapons);
+            }
+
+            CrowsAmmo.ConfigureVehicleCoax(vic);
+
+            bool cfg_crows = is_m1ip ? crows_m1a1.Value : crows_m1e1.Value;
+
+            if (cfg_crows)
+            {
+                Vector3 crows_pos = crows_alt_placement.Value
+                    ? new Vector3(1.4f, 1.1164f, -0.5873f)
+                    : new Vector3(0.7855f, 1.2855f, 0.5182f);
+
+                if (CROWS.Mount(vic, vic.transform.Find("IPM1_rig/HULL/TURRET"), crows_pos, crows_alt_placement.Value, cfg_flir_gen))
+                {
+                    RaiseAbramsAntennas(vic);
+
+                    // The original M48 cupola gun is skinned geometry bound to this bone, so
+                    // zeroing the bone's scale is what actually hides it.
+                    Transform cupola_gun = vic.transform.Find("IPM1_rig/HULL/TURRET/CUPOLA/CUPOLA_GUN");
+
+                    if (cupola_gun != null)
+                    {
+                        cupola_gun.localScale = Vector3.zero;
+                    }
+                }
             }
         }
 
         public static IEnumerator Convert(GameState _)
         {
+            // Nothing below runs until GHPC's instanced-geometry pipeline is up and serving cameras.
+            //
+            // Building the station instantiates and destroys renderers - the donors it borrows from,
+            // the borrowed parts it switches on, the two donor components it deletes - and loading the
+            // donors does the same. GHPC is collecting its instanced geometry on worker threads at the
+            // same moment, and that collection has a deadline. Miss it and the renderer prints
+            //
+            //   Timeout waiting for instance collection threads to complete! Not processing any
+            //   instance logic for this collection.
+            //
+            // and stops submitting batches altogether - "Thread wait timed out. Not submitting instance
+            // batches for this frame." - which is the whole map's vegetation gone, not just the sight's.
+            // No amount of downstream repair can put back a collection that never finished, so the
+            // station waits for the pipeline to report itself healthy before it starts instantiating
+            // anything, with a hard ceiling so a pipeline that never reports cannot hold the station
+            // back. This is the one failure of the two that has to be prevented rather than
+            // compensated: CrowsInstancingAssist can submit batches that the renderer dropped, but it
+            // cannot revive a dead collection thread.
+            const int MAX_FRAMES = 180;
+
+            for (int frame = 0; frame < MAX_FRAMES; frame++)
+            {
+                // A pipeline this assembly cannot read is not a pipeline to wait for: if the
+                // reflection ever fails to find the renderer, the wait is skipped rather than paid in
+                // full on every mission.
+                if (!CrowsInstancing.Usable || CrowsInstancing.PipelineServing())
+                {
+                    break;
+                }
+
+                yield return null;
+            }
+
+            // Donors (M60A3 cupola parts, T55A reticle tree, Bradley GPS canvas) and the
+            // game's .50 cal ammo entries all exist by the time the mission is playable.
+            CROWS.Init();
+
             foreach (Vehicle vic in M1A1AbramsMod.vics)
             {
                 HandleConversion(vic);
@@ -412,3 +645,9 @@ namespace M1A1Abrams
         }
     }
 }
+
+
+
+
+
+

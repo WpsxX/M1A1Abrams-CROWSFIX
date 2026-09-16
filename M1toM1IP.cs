@@ -36,7 +36,10 @@ namespace M1A1Abrams
                 {
                     PresetManager<M1Preset> preset_manager = M1A1.preset_manager_m1;
                     preset = preset_manager.ChoosePreset();
-                    transmog = preset.ConvertToM1IP;
+                    if (preset != null)
+                    {
+                        transmog = preset.ConvertToM1IP;
+                    }
                 }
 
                 if (transmog)

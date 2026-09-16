@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -31,28 +31,38 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <!-- Point GameDir at your Gunner, HEAT, PC! install, e.g.
+         dotnet build M1A1Abrams.csproj -c Release -p:GameDir="D:\Games\Gunner HEAT PC" -->
+  <PropertyGroup>
+    <GameDir Condition=" '$(GameDir)' == '' ">E:\SteamLibrary\steamapps\common\Gunner HEAT PC</GameDir>
+    <ManagedDir>$(GameDir)\Bin\GHPC_Data\Managed</ManagedDir>
+    <MelonDir>$(GameDir)\Bin\MelonLoader\net35</MelonDir>
+  </PropertyGroup>
   <ItemGroup>
+    <!--
+      Assembly-CSharp is referenced from the game's Managed folder on purpose: that is the
+      official, un-publicized build, the one the game actually loads. Compiling against
+      publicized_assemblies\Assembly-CSharp-Publicized.dll would hide every private access
+      that throws FieldAccessException at run time. Non-public members go through
+      ModUtil.Reflect instead.
+    -->
     <Reference Include="0Harmony">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gunner HEAT PC\Bin\MelonLoader\net35\0Harmony.dll</HintPath>
+      <HintPath>$(MelonDir)\0Harmony.dll</HintPath>
     </Reference>
-    <Reference Include="Assembly-CSharp-Publicized, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>D:\GHPC MODDED\GHPC_Data\Managed\publicized_assemblies\Assembly-CSharp-Publicized.dll</HintPath>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath>
     </Reference>
-    <Reference Include="FMODUnity, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\Desktop\GHPC MODDED\GHPC_Data\Managed\FMODUnity.dll</HintPath>
+    <Reference Include="FMODUnity">
+      <HintPath>$(ManagedDir)\FMODUnity.dll</HintPath>
     </Reference>
     <Reference Include="FMODUnityResonance">
-      <HintPath>..\..\..\Desktop\GHPC MODDED\GHPC_Data\Managed\FMODUnityResonance.dll</HintPath>
+      <HintPath>$(ManagedDir)\FMODUnityResonance.dll</HintPath>
     </Reference>
-    <Reference Include="MelonLoader, Version=0.6.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>D:\GHPC MODDED\MelonLoader\net35\MelonLoader.dll</HintPath>
+    <Reference Include="MelonLoader">
+      <HintPath>$(MelonDir)\MelonLoader.dll</HintPath>
     </Reference>
-    <Reference Include="Rewired_Core, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\Desktop\GHPC MODDED\GHPC_Data\Managed\Rewired_Core.dll</HintPath>
+    <Reference Include="Rewired_Core">
+      <HintPath>$(ManagedDir)\Rewired_Core.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -62,64 +72,84 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
-    <Reference Include="Tomlet, Version=5.1.2.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>D:\GHPC MODDED\MelonLoader\Dependencies\SupportModules\Tomlet.dll</HintPath>
+    <Reference Include="Tomlet">
+      <HintPath>$(MelonDir)\Tomlet.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.Addressables, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\Desktop\GHPC MODDED\GHPC_Data\Managed\Unity.Addressables.dll</HintPath>
+    <Reference Include="Unity.Addressables">
+      <HintPath>$(ManagedDir)\Unity.Addressables.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Postprocessing.Runtime">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gunner HEAT PC\Bin\GHPC_Data\Managed\Unity.Postprocessing.Runtime.dll</HintPath>
+      <HintPath>$(ManagedDir)\Unity.Postprocessing.Runtime.dll</HintPath>
     </Reference>
-    <Reference Include="Unity.ResourceManager, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>D:\GHPC MODDED\GHPC_Data\Managed\Unity.ResourceManager.dll</HintPath>
+    <Reference Include="Unity.ResourceManager">
+      <HintPath>$(ManagedDir)\Unity.ResourceManager.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(ManagedDir)\Unity.TextMeshPro.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gunner HEAT PC\Bin\GHPC_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AssetBundleModule">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gunner HEAT PC\Bin\GHPC_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+      <HintPath>$(ManagedDir)\UnityEngine.AssetBundleModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gunner HEAT PC\Bin\GHPC_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(ManagedDir)\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gunner HEAT PC\Bin\GHPC_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.ParticleSystemModule">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Gunner HEAT PC\Bin\GHPC_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <HintPath>$(ManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
     </Reference>
-    <Reference Include="UnityEngine.PhysicsModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\Desktop\GHPC MODDED\GHPC_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
-    <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\Desktop\GHPC MODDED\GHPC_Data\Managed\UnityEngine.UI.dll</HintPath>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
     </Reference>
-    <Reference Include="UnityEngine.UIModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\Desktop\GHPC MODDED\GHPC_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(ManagedDir)\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
+    <!-- UnityEngine.Font is forwarded here; without it CROWS.cs fails with CS1069. -->
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(ManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+    <Reference Include="netstandard">
+      <HintPath>$(ManagedDir)\netstandard.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Ammo_120mm.cs" />
     <Compile Include="Assets.cs" />
+    <Compile Include="CROWS.cs" />
+    <Compile Include="CrowsAmmo.cs" />
+    <Compile Include="CrowsAmmoRules.cs" />
     <Compile Include="M1Preset.cs" />
     <Compile Include="ModUtil\AssetUtil.cs" />
-    <Compile Include="Canister.cs" />
     <Compile Include="CITV.cs" />
+    <Compile Include="CrowsAimLock.cs" />
+    <Compile Include="CrowsAutoTrack.cs" />
+    <Compile Include="CrowsAutoTrack.Lead.cs" />
+    <Compile Include="CrowsAutoTrack.Sight.cs" />
+    <Compile Include="CrowsPredictor.cs" />
+    <Compile Include="CrowsShotFeedback.cs" />
+    <Compile Include="CrowsTrackingBoxes.cs" />
+    <Compile Include="CrowsInstancingAssist.cs" />
+    <Compile Include="CrowsInstancingSubmit.cs" />
+    <Compile Include="CrowsLeadLock.cs" />
+    <Compile Include="CrowsSightUi.cs" />
     <Compile Include="DigitalEnhancement.cs" />
     <Compile Include="DUArmour.cs" />
     <Compile Include="GAS.cs" />
     <Compile Include="M1A1.cs" />
+    <Compile Include="AmmoLoadoutRules.cs" />
+    <Compile Include="MainGunLoadout.cs" />
     <Compile Include="M1toM1IP.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="ModUtil\Module.cs" />
     <Compile Include="ModUtil\ModuleManager.cs" />
+    <Compile Include="ModUtil\Reflect.cs" />
     <Compile Include="MPAT.cs" />
     <Compile Include="Presets\PresetManager.cs" />
     <Compile Include="Presets\PresetMarker.cs" />
@@ -130,3 +160,7 @@
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
+
+
+
+

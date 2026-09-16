@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using GHPC;
@@ -7,7 +8,6 @@ using GHPC.Weapons;
 using GHPC.Thermals;
 using UnityEngine;
 using GHPC.Effects;
-using MelonLoader;
 
 namespace ModUtil
 {
@@ -33,13 +33,26 @@ namespace ModUtil
 
         public static void CacheAmmo(AmmoType ammo)
         {
+            // Cache against the database actually used to render impacts this scene.
+            // Resources may also contain donor/previous-scene databases.
+            ImpactEffectsDatabaseScriptable active = Reflect.Get<ImpactEffectsDatabaseScriptable>(
+                ParticleEffectsManager.Instance, "_impactEffectsScriptable");
+            if (active != null) impact_fx_db = active;
             if (impact_fx_db == null)
             {
-                impact_fx_db = Resources.FindObjectsOfTypeAll<ImpactEffectsDatabaseScriptable>()[0];
+                impact_fx_db = Resources.FindObjectsOfTypeAll<ImpactEffectsDatabaseScriptable>().FirstOrDefault();
             }
+            if (impact_fx_db == null) { ammo.CachedIndex = -1; return; }
 
             int id;
-            ImpactDecalsManager.Instance._ImpactDecalsScriptable.CacheNewData(ammo, out id);
+            ImpactDecalsDatabaseScriptable decals = Reflect.Get<ImpactDecalsDatabaseScriptable>(
+                ImpactDecalsManager.Instance, "_ImpactDecalsScriptable");
+
+            if (decals != null)
+            {
+                decals.CacheNewData(ammo, out id);
+            }
+
             impact_fx_db.CacheNewData(ammo, out id);
             ammo.CachedIndex = id;
         }
@@ -55,21 +68,21 @@ namespace ModUtil
 
             if (codex != null)
             {
-                component._armorType = codex;
+                Reflect.Set(component, "_armorType", codex);
             }
         }
 
         public static T[] AppendToArray<T>(T[] array, T new_item)
         {
-            List<T> values = new List<T>();
-            foreach (T old_item in array)
+            int old_length = array == null ? 0 : array.Length;
+            T[] values = new T[old_length + 1];
+            if (old_length > 0)
             {
-                values.Add(old_item);
+                Array.Copy(array, values, old_length);
             }
 
-            values.Add(new_item);
-
-            return values.ToArray();
+            values[old_length] = new_item;
+            return values;
         }
 
         public static void Coalesce<T>(ref T obj) where T : new()
@@ -89,7 +102,7 @@ namespace ModUtil
             }
 
             HeatSource src = parent.AddComponent<HeatSource>();
-            src.heat = 0.4f;
+            src.Heat = 0.4f;
         }
 
         public static void ShallowCopy(System.Object dest, System.Object src)
@@ -124,20 +137,18 @@ namespace ModUtil
 
         public static void EmptyRack(GHPC.Weapons.AmmoRack rack)
         {
-            MethodInfo removeVis = typeof(GHPC.Weapons.AmmoRack).GetMethod("RemoveAmmoVisualFromSlot", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            PropertyInfo stored_clips = typeof(GHPC.Weapons.AmmoRack).GetProperty("StoredClips");
-            stored_clips.SetValue(rack, new List<AmmoType.AmmoClip>());
-
-            rack.SlotIndicesByAmmoType = new Dictionary<AmmoType, List<byte>>();
+            if (rack == null) return;
+            rack.StoredClips.Clear();
+            rack.SlotIndicesByAmmoType.Clear();
 
             foreach (Transform transform in rack.VisualSlots)
             {
+                if (transform == null) continue;
                 AmmoStoredVisual vis = transform.GetComponentInChildren<AmmoStoredVisual>();
 
                 if (vis != null && vis.AmmoType != null)
                 {
-                    removeVis.Invoke(rack, new object[] { transform });
+                    Reflect.Call(rack, "RemoveAmmoVisualFromSlot", transform);
                 }
             }
         }

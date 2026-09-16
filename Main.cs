@@ -1,6 +1,7 @@
-﻿using System.Linq;
+using System;
+using System.Linq;    // Util.menu_screens is an array
 using MelonLoader;
-using M1A1Abrams;
+using M1A1Abrams;      // the assembly attributes below name the mod type
 using GHPC.State;
 using System.Collections;
 using UnityEngine;
@@ -31,7 +32,20 @@ namespace M1A1Abrams
 
         public override void OnInitializeMelon()
         {
-            module_manager = new ModuleManager("M1A1");
+            // The tracker holds the player's aim input off the fire control while it is driving it,
+            // and takes over the traverse rate its lead is built from (see CrowsAimLock and
+            // CrowsLeadLock). A failure here is worth a loud line: without it the impact marker
+            // follows the mouse.
+            try
+            {
+                HarmonyInstance.PatchAll();
+            }
+            catch (Exception)
+            {
+            // The call is best-effort: a failure here leaves the previous state alone.
+            }
+
+            module_manager = new ModuleManager();
             MelonPreferences_Category cfg = MelonPreferences.CreateCategory("M1A1Config");
             M1A1.Config(cfg);
 
@@ -41,18 +55,13 @@ namespace M1A1Abrams
             module_manager.Add("GAS", new GAS());
 
             PresetManager.LoadAllPresets();
-
-            //M1Preset template = new M1Preset();
-            //string toml_string = TomletMain.TomlStringFrom(template);
-            //File.WriteAllText(Path.Combine(MelonEnvironment.ModsDirectory + "/m1a1assets/PresetBundles", "m1 template.cfg"), toml_string);
-
-            //M1IPPreset template2 = new M1IPPreset();
-            //string toml_string2 = TomletMain.TomlStringFrom(template2);
-            //File.WriteAllText(Path.Combine(MelonEnvironment.ModsDirectory + "/m1a1assets/PresetBundles", "m1ip template.cfg"), toml_string2);
         }
 
         public override void OnSceneWasLoaded(int idx, string scene_name) {
             module_manager.UnloadAllDynamicAssets();
+            M1A1.ResetConversionState();
+            vics = null;
+            game_manager = null;
 
             if (scene_name == "MainMenu2_Scene" || scene_name == "MainMenu2-1_Scene" || scene_name == "t64_menu")
             {

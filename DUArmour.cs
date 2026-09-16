@@ -1,4 +1,5 @@
-﻿using GHPC.Equipment;
+using System;
+using GHPC.Equipment;
 using UnityEngine;
 using System.IO;
 using MelonLoader.Utils;
@@ -22,15 +23,24 @@ namespace M1A1Abrams
 
         public override void LoadStaticAssets()
         {
-            AssetBundle mats = AssetBundle.LoadFromFile(Path.Combine(MelonEnvironment.ModsDirectory + "/m1a1assets/", "du_mats"));
-            gen1_du_aar_mat = mats.LoadAsset<Material>("gen1.mat");
-            gen1_du_aar_mat.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            string path = Path.Combine(MelonEnvironment.ModsDirectory, "m1a1assets", "du_mats");
+            AssetBundle mats = AssetBundle.LoadFromFile(path);
 
-            gen2_du_aar_mat = mats.LoadAsset<Material>("gen2.mat");
-            gen2_du_aar_mat.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            if (mats == null)
+            {
+                throw new InvalidOperationException("could not open asset bundle: " + path);
+            }
 
-            gen3_du_aar_mat = mats.LoadAsset<Material>("gen3.mat");
-            gen3_du_aar_mat.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            try
+            {
+                gen1_du_aar_mat = LoadMaterial(mats, "gen1.mat", path);
+                gen2_du_aar_mat = LoadMaterial(mats, "gen2.mat", path);
+                gen3_du_aar_mat = LoadMaterial(mats, "gen3.mat", path);
+            }
+            finally
+            {
+                mats.Unload(false);
+            }
 
             gen1_du_armor_codex = ScriptableObject.CreateInstance<ArmorCodexScriptable>();
             gen1_du_armor_codex.name = "Gen 1 Abrams DU composite";
@@ -79,6 +89,19 @@ namespace M1A1Abrams
 
             du_aar_mats = new Material[] { gen1_du_aar_mat, gen2_du_aar_mat, gen3_du_aar_mat };
             du_armor_codexes = new ArmorCodexScriptable[] { gen1_du_armor_codex, gen2_du_armor_codex, gen3_du_armor_codex };
+        }
+
+        private static Material LoadMaterial(AssetBundle bundle, string asset_name, string bundle_path)
+        {
+            Material material = bundle.LoadAsset<Material>(asset_name);
+
+            if (material == null)
+            {
+                throw new InvalidOperationException("asset '" + asset_name + "' is missing from " + bundle_path);
+            }
+
+            material.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            return material;
         }
     }
 }

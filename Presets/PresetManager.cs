@@ -9,7 +9,7 @@ using MelonLoader;
 namespace Presets
 {
     internal class PresetManager {
-        public static List<PresetManager> PresetManagers = new List<PresetManager>();
+        internal static readonly List<PresetManager> PresetManagers = new List<PresetManager>();
 
         public virtual void LoadPresets() { }
 
@@ -19,6 +19,11 @@ namespace Presets
             {
                 preset_manager.LoadPresets();
             }
+        }
+
+        internal static void ClearAll()
+        {
+            PresetManagers.Clear();
         }
     }
 
@@ -41,9 +46,13 @@ namespace Presets
         {
             string full_path = Path.Combine(MelonEnvironment.ModsDirectory, preset_bundle_path);
 
+            loaded_presets.Clear();
+            preset_choice_pool.Clear();
+            PlayerReservedPreset = default(T);
+            HasPlayerReservedPreset = false;
+
             try 
             {
-                MelonLogger.Msg("loading preset bundle from path: " + preset_bundle_path);
 
                 string[] preset_paths = Directory.GetFiles(full_path, "*.cfg");
 
@@ -68,24 +77,21 @@ namespace Presets
                     }
                 }
 
-                foreach (T preset in loaded_presets)
-                {
-                    PresetTemplate t = preset as PresetTemplate;
-                    string probablity = (1f * t.Weight / preset_choice_pool.Count * 100f).ToString("F2");
-                    MelonLogger.Msg($"loaded preset <{t.Id}> with probabilty <{probablity}%>");
-                }
-
-                MelonLogger.Msg("\n\n");
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                MelonLogger.Error(e);
+            // The call is best-effort: a failure here leaves the previous state alone.
             }
         }
 
         public T ChoosePreset()
         {
-            return preset_choice_pool[UnityEngine.Random.Range(0, preset_choice_pool.Count - 1)];
+            if (preset_choice_pool.Count == 0)
+            {
+                return default(T);
+            }
+
+            return preset_choice_pool[UnityEngine.Random.Range(0, preset_choice_pool.Count)];
         }
     }
 }

@@ -1,17 +1,31 @@
-﻿namespace ModUtil
+using System;
+
+namespace ModUtil
 {
     public class Module
     {
         private bool static_assets_loaded = false;
         private bool dynamic_assets_loaded = false;
 
+        /// <summary>
+        /// Modules may only apply to some scenes. A module can leave this false from
+        /// LoadDynamicAssets() so the next scene gets another load attempt.
+        /// </summary>
+        protected bool DynamicAssetLoadSucceeded { get; set; } = true;
+
         public bool TryLoadStaticAssets()
         {
             if (static_assets_loaded) return false;
 
-            LoadStaticAssets();
-
-            static_assets_loaded = true;
+            try
+            {
+                LoadStaticAssets();
+                static_assets_loaded = true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
 
             return true;
         }
@@ -20,20 +34,52 @@
         {
             if (dynamic_assets_loaded) return false;
 
-            LoadDynamicAssets();
+            DynamicAssetLoadSucceeded = true;
 
-            dynamic_assets_loaded = true;
+            try
+            {
+                LoadDynamicAssets();
+            }
+            catch (Exception)
+            {
+                DynamicAssetLoadSucceeded = false;
 
-            return true;
+                // A module can create several objects before a later lookup fails.  The
+                // module is still marked as not loaded, so without an explicit rollback
+                // those partial objects (and any Addressables handles they own) survive
+                // into the next scene and are loaded a second time.  Unload is deliberately
+                // best-effort here: a cleanup failure must not hide the original load
+                // failure or leave the module permanently marked as loaded.
+                try
+                {
+                    UnloadDynamicAssets();
+                }
+                catch (Exception)
+                {
+                }
+            }
+
+            dynamic_assets_loaded = DynamicAssetLoadSucceeded;
+
+            return dynamic_assets_loaded;
         }
 
         public bool TryUnloadDynamicAssets()
         {
             if (!dynamic_assets_loaded) return false;
 
-            dynamic_assets_loaded = false;
-
-            UnloadDynamicAssets();
+            try
+            {
+                UnloadDynamicAssets();
+            }
+            catch (Exception)
+            {
+            // The call is best-effort: a failure here leaves the previous state alone.
+            }
+            finally
+            {
+                dynamic_assets_loaded = false;
+            }
 
             return true;
         }

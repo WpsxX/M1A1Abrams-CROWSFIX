@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
+using UnityEngine.UI;
 using GHPC.Weapons;
 using HarmonyLib;
 using GHPC.Player;
@@ -15,14 +16,13 @@ namespace M1A1Abrams
     public class MPATManager : MonoBehaviour
     {
         public bool ProximityActive { get; set; }
-        public int AmmoKeyIdx { get; set; }
         public int AmmoCachedIdx { get; set; }
 
 
-        private float cd = 0f;
         private WeaponSystem weapon = null;
-        private PlayerInput player_manager;
         private int self_id;
+        private string[] ammoKeys;
+        private LoadoutManager loadout;
 
 
         void Awake()
@@ -30,21 +30,33 @@ namespace M1A1Abrams
             weapon = GetComponent<WeaponsManager>().Weapons[0].Weapon;
             weapon.Fired += OnFired;
             self_id = gameObject.GetInstanceID();
+            ammoKeys = ModUtil.Reflect.GetStatic<string[]>(typeof(PlayerInput), "ammoKeys");
+            loadout = GetComponent<LoadoutManager>();
         }
 
         void Update()
         {
-            cd -= Time.deltaTime;
+            var playerUnit = PlayerInput.Instance?.CurrentPlayerUnit;
+            if (playerUnit == null || playerUnit.gameObject.GetInstanceID() != self_id
+                || weapon == null || weapon.CurrentAmmoType == null) return;
 
-            if (PlayerInput.Instance.CurrentPlayerUnit.gameObject.GetInstanceID() != self_id) return;
-
-            if (
-                InputUtil.MainPlayer.GetButtonDoublePressDown(PlayerInput.ammoKeys[AmmoKeyIdx]) && 
-                weapon.CurrentAmmoType.CachedIndex == AmmoCachedIdx
-            )
+            if (weapon.CurrentAmmoType.CachedIndex != AmmoCachedIdx || loadout == null
+                || ammoKeys == null || InputUtil.MainPlayer == null) return;
+            var clips = loadout.LoadedAmmoList.AmmoClips;
+            for (int i = 0; i < clips.Length && i < ammoKeys.Length; i++)
             {
+                var pattern = clips[i]?.ClipType?.MinimalPattern;
+                if (pattern == null || pattern.Length == 0 || pattern[0] == null
+                    || pattern[0].AmmoType.CachedIndex != AmmoCachedIdx) continue;
+                if (!InputUtil.MainPlayer.GetButtonDoublePressDown(ammoKeys[i])) continue;
                 ProximityActive = !ProximityActive;
+                break;
             }
+        }
+
+        private void OnDestroy()
+        {
+            if (weapon != null) weapon.Fired -= OnFired;
         }
 
         private void OnFired(AmmoType ammo, LiveRound live_round)
@@ -91,11 +103,13 @@ namespace M1A1Abrams
         {
             if (detonated) return;
             detonated = true;
-            live_round._terrainHit = false;
-            live_round._didTerrainHit = false;
-            live_round._fuzeCompleted = true;
-            live_round._materialHit = GHPC.Effects.ParticleEffectsManager.SurfaceMaterial.None;
-            live_round.createExplosion(hitSurface: false, 0f, Vector3.zero, 0.03f);
+            ModUtil.Reflect.Set(live_round, "_terrainHit", false);
+            ModUtil.Reflect.Set(live_round, "_didTerrainHit", false);
+            ModUtil.Reflect.Set(live_round, "_fuzeCompleted", true);
+            ModUtil.Reflect.Set(live_round, "_materialHit", GHPC.Effects.ParticleEffectsManager.SurfaceMaterial.None);
+            // createExplosion has a 5th parameter with a default value, which reflection
+            // cannot omit, so the default (50 spall) is passed explicitly.
+            ModUtil.Reflect.Call(live_round, "createExplosion", false, 0f, Vector3.zero, 0.03f, 50);
             live_round.Detonate();
 
             ParticleEffectsManager.Instance.CreateImpactEffectOfType(dummy_he,
@@ -125,16 +139,10 @@ namespace M1A1Abrams
         void Update()
         {
             Vector3 pos = this.transform.position;
-            Vector3[] dirs = new Vector3[]
-            {
-                this.transform.forward,
-                Vector3.down
-            };
-
-            for (int i = 0; i < dirs.Length; i++)
+            for (int i = 0; i < ranges.Length; i++)
             {
                 RaycastHit hit;
-                Ray ray = new Ray(pos, dirs[i]);
+                Ray ray = new Ray(pos, i == 0 ? transform.forward : Vector3.down);
                 if (
                     RaycastColliderUtils.Raycast(ray, out hit, ranges[i], ConstantsAndInfoManager.Instance.LaserRangefinderLayerMask)
                     && hit.collider.CompareTag("Penetrable")
@@ -161,11 +169,17 @@ namespace M1A1Abrams
     {
         private static void Postfix(WeaponHud __instance)
         {
-            MPATManager mpat_manager = __instance._playerInput?.CurrentPlayerUnit?.GetComponent<MPATManager>();
+            PlayerInput player_input = ModUtil.Reflect.Get<PlayerInput>(__instance, "_playerInput");
+            MPATManager mpat_manager = player_input?.CurrentPlayerUnit?.GetComponent<MPATManager>();
 
             if (mpat_manager == null || !mpat_manager.ProximityActive) return;
 
-            __instance._hudText.text = __instance._sb.ToString() + "\nMPAT Proximity";
+            Text hud_text = ModUtil.Reflect.Get<Text>(__instance, "_hudText");
+            StringBuilder hud_builder = ModUtil.Reflect.Get<StringBuilder>(__instance, "_sb");
+
+            if (hud_text == null || hud_builder == null) return;
+
+            hud_text.text = hud_builder.ToString() + "\nMPAT Proximity";
         }
     }
 }

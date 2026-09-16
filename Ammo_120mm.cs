@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -51,24 +51,40 @@ namespace M1A1Abrams
         public static AmmoCodexScriptable ammo_codex_m829a3;
         public static AmmoType ammo_m829a3;
 
+        public static AmmoClipCodexScriptable clip_codex_m829a4;
+        public static AmmoType.AmmoClip clip_m829a4;
+        public static AmmoCodexScriptable ammo_codex_m829a4;
+        public static AmmoType ammo_m829a4;
+
         public static GameObject ammo_m827_vis = null;
         public static GameObject ammo_m829_vis = null;
         public static GameObject ammo_m829a1_vis = null;
         public static GameObject ammo_m829a2_vis = null;
         public static GameObject ammo_m829a3_vis = null;
+        public static GameObject ammo_m829a4_vis = null;
         public static GameObject ammo_m830_vis = null;
         public static GameObject ammo_m830a1_vis = null;
 
 
         public override void UnloadDynamicAssets()
         {
-            GameObject.DestroyImmediate(ammo_m827_vis);
-            GameObject.DestroyImmediate(ammo_m829_vis);
-            GameObject.DestroyImmediate(ammo_m829a1_vis);
-            GameObject.DestroyImmediate(ammo_m829a2_vis);
-            GameObject.DestroyImmediate(ammo_m829a3_vis);
-            GameObject.DestroyImmediate(ammo_m830_vis);
-            GameObject.DestroyImmediate(ammo_m830a1_vis);
+            DestroyVisual(ref ammo_m827_vis);
+            DestroyVisual(ref ammo_m829_vis);
+            DestroyVisual(ref ammo_m829a1_vis);
+            DestroyVisual(ref ammo_m829a2_vis);
+            DestroyVisual(ref ammo_m829a3_vis);
+            DestroyVisual(ref ammo_m829a4_vis);
+            DestroyVisual(ref ammo_m830_vis);
+            DestroyVisual(ref ammo_m830a1_vis);
+        }
+
+        private static void DestroyVisual(ref GameObject visual)
+        {
+            if (visual != null)
+            {
+                GameObject.DestroyImmediate(visual);
+                visual = null;
+            }
         }
 
         public override void LoadDynamicAssets()
@@ -203,30 +219,7 @@ namespace M1A1Abrams
             ammo_m829a3.Coeff = 0.22f;
             ammo_m829a3.CachedIndex = -1;
 
-            string era_schema = Assembly.CreateQualifiedName("PactIncreasedLethality", "PactIncreasedLethality.EraSchema");
-            string k5 = Assembly.CreateQualifiedName("PactIncreasedLethality", "PactIncreasedLethality.Kontakt5");
-            string relikt = Assembly.CreateQualifiedName("PactIncreasedLethality", "PactIncreasedLethality.Relikt");
-            Type era_schema_type = Type.GetType(era_schema);
-            Type k5_type = Type.GetType(k5);
-            Type relikt_type = Type.GetType(relikt);
-            if (k5_type != null)
-            {
-                BindingFlags flags = BindingFlags.Static | BindingFlags.Public;
-                FieldInfo era_schema_so = era_schema_type.GetField("era_so", BindingFlags.Public | BindingFlags.Instance);
-                Func<Type, ArmorCodexScriptable> get_codex = type => (ArmorCodexScriptable)era_schema_so.GetValue(type.GetField("schema", flags).GetValue(null));
-
-                ammo_m829a3.ArmorOptimizations = new AmmoType.ArmorOptimization[] {
-                    new AmmoType.ArmorOptimization() {
-                        Armor = get_codex(k5_type),
-                        RhaRatio = 0.25f
-                    },
-
-                    new AmmoType.ArmorOptimization() {
-                        Armor = get_codex(relikt_type),
-                        RhaRatio = 0.25f
-                    }
-                };
-            }
+            ammo_m829a3.ArmorOptimizations = HeavyEraOptimizations(0.25f);
 
             Util.Coalesce(ref ammo_codex_m829a3);
             ammo_codex_m829a3.AmmoType = ammo_m829a3;
@@ -242,6 +235,104 @@ namespace M1A1Abrams
             clip_codex_m829a3.name = "clip_m829a3";
             clip_codex_m829a3.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m829a3.ClipType = clip_m829a3;
+
+            // m829a4
+            //
+            // The round the station carries today, and the one whose absence was most visible against late
+            // Pact ERA: a longer DU rod than the A3's, fired a little slower, with a tip built to break the
+            // heavy ERA that stops the earlier darts.
+            //
+            // What GHPC can be told, and what it was given:
+            //   * The whole round is ~22.3 kg and the penetrator assembly ~10 kg, but neither number belongs
+            //     anywhere in the game: `Mass` is the drag mass of the thing that actually flies, and the
+            //     sabot is discarded at the muzzle, so it takes the rod's own 5.5-6.0 kg (5.8 here). That is
+            //     what the rest of this family does too (A1/A2 4.6, A3 5.2).
+            //   * The rod is ~1,020 mm long - that is where the extra penetration comes from - but GHPC has
+            //     no length field, so it is expressed entirely through the number that matters: penetration.
+            //   * `SectionalArea` (0.0009) and `Coeff` (0.20) are this mod's APFSDS family values, and they
+            //     are what decide how much of the muzzle velocity the dart keeps on the way out.
+            //   * `MuzzleVelocity` 1,565 m/s, the middle of the published 1,550-1,580 for the 120 mm L/44
+            //     M256 this vehicle carries.
+            //   * Penetration is calibrated against this mod's own M829A3, not against an absolute figure.
+            //     The A3 in this file carries `RhaPenetration = 690`, and the published bands for the two
+            //     rounds are 750-800 mm RHAe for the A3 and 800-850 for the A4, so the ratio to carry
+            //     across is the ratio of their midpoints:
+            //         690 * (825 / 775) = 734.5  ->  735
+            //     That keeps the A4 on the same scale as the A3 that is already in the game instead of
+            //     inventing a second one - writing the A4's *absolute* 800-850 here (960, as it was first
+            //     done) makes it 39% better than the A3, which is three times the improvement the two real
+            //     rounds differ by.
+            //
+            //     GHPC takes no penetration table: it takes this single RHA figure, treats it as the muzzle
+            //     value, and scales it by the square of the speed ratio (`LiveRound.CurrentPenRating`), so
+            //     the 2,000 m figure falls out of the drag model used by `OldLiveRound.accelerate` /
+            //     `BallisticEvaluatorRK4`:
+            //         k         = Coeff * SectionalArea * air density / Mass
+            //                   = 0.20 * 0.0009 * 1.2 / 5.8                = 3.724e-5 per metre
+            //         v(2000 m) = v0 * exp(-k * 2000)                        = 0.9282 * v0
+            //         pen(2000) = RhaPenetration * 0.9282^2 = 735 * 0.8616    = 633 mm RHAe
+            //     against the A3's 579 mm at the same range (690 * 0.9164^2), i.e. +6.5% at the muzzle and
+            //     +9.4% at 2,000 m: the dart holds its speed slightly better because that is what a longer,
+            //     heavier rod with a better tip does. (Air density is 1.2 from `WorldScript.LocalAirDensity`
+            //     or 1.25 from `WorldEnvironmentManager`; the other one moves these by under 1%.)
+            //
+            //     Note what is *not* asked of this number: the A3's "still 700 mm+ against the base armour
+            //     after defeating heavy ERA" is not extra penetration, it is the ERA's reduced worth against
+            //     these rounds - the `ArmorOptimizations` table below, which is 0.125 here against the A3's
+            //     0.25.
+            //   * The propellant (SCDB, insensitive, combustible case, 4340 steel base, electric primer) and
+            //     the DU alloy itself are inert here: the game has no field for any of them, and none of them
+            //     changes the trajectory or the penetration it computes.
+            ammo_m829a4 = new AmmoType();
+            Util.ShallowCopy(ammo_m829a4, Assets.ammo_m833);
+            ammo_m829a4.Name = "M829A4 APFSDS-T";
+            ammo_m829a4.Caliber = 120;
+            ammo_m829a4.RhaPenetration = 735f;
+            ammo_m829a4.SpallMultiplier = 1.25f;
+            ammo_m829a4.MaxSpallRha = 24f;
+            ammo_m829a4.MinSpallRha = 8f;
+            ammo_m829a4.MuzzleVelocity = 1565f;
+            ammo_m829a4.Mass = 5.8f;
+            ammo_m829a4.SectionalArea = 0.0009f;
+            ammo_m829a4.Coeff = 0.20f;
+
+            // The A4's whole reason for existing: heavy ERA counts for half of what it counts for against the
+            // A3. This is not a free parameter - it reads straight off the ERA's own numbers, which live in
+            // the Pact Increased Lethality mod:
+            //
+            //     Kontakt5.schema.ke_rha = 200 mm      Relikt.schema.ke_rha = 250 mm
+            //
+            // and off what `LiveRound.penCheck` does with them: passing a layer costs the dart speed
+            // (`CurrentSpeed = sqrt(v^2 * (1 - layer / penetration))`), and since penetration goes as the
+            // square of the speed, a layer costs exactly `layer` millimetres of penetration. A layer's
+            // thickness is its nominal RHA *times this ratio*, so the ratio is a millimetre figure:
+            //
+            //     A3, 0.25    Kontakt-5 200 * 0.25 =  50 mm      Relikt 250 * 0.25 = 62.5 mm
+            //     A4, 0.125   Kontakt-5 200 * 0.125 = 25 mm      Relikt 250 * 0.125 = 31.3 mm
+            //
+            // The A3's 0.25 is what makes its published claim true - 750-800 mm RHAe, and "still 700 mm+
+            // against the base armour after defeating heavy ERA" is 775 - 50 = 725, or 750 - 50 = 700 at the
+            // bottom of the band. So the ratio is already calibrated by that sentence, and the A4 has to be
+            // read on the same scale: half the cost is 735 - 25 = 710 mm left after Kontakt-5, against 633 -
+            // 25 = 608 mm at 2,000 m. That is what "significantly enhanced against heavy ERA" is worth here;
+            // it is deliberately *not* expressed as extra `RhaPenetration`, which would double-count it.
+            ammo_m829a4.ArmorOptimizations = HeavyEraOptimizations(0.125f);
+            ammo_m829a4.CachedIndex = -1;
+
+            Util.Coalesce(ref ammo_codex_m829a4);
+            ammo_codex_m829a4.AmmoType = ammo_m829a4;
+            ammo_codex_m829a4.name = "ammo_m829a4";
+
+            clip_m829a4 = new AmmoType.AmmoClip();
+            clip_m829a4.Capacity = 1;
+            clip_m829a4.Name = "M829A4 APFSDS-T";
+            clip_m829a4.MinimalPattern = new AmmoCodexScriptable[1];
+            clip_m829a4.MinimalPattern[0] = ammo_codex_m829a4;
+
+            Util.Coalesce(ref clip_codex_m829a4);
+            clip_codex_m829a4.name = "clip_m829a4";
+            clip_codex_m829a4.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
+            clip_codex_m829a4.ClipType = clip_m829a4;
 
             // m830
             ammo_m830 = new AmmoType();
@@ -359,6 +450,15 @@ namespace M1A1Abrams
             ammo_m829a3.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m829a3;
             ammo_m829a3.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m829a3;
 
+            // The stored-round model is the donor M833's, scaled 1:1. The A4 is ~40 mm longer than the A3
+            // in reality, and 40 mm at rack scale is a couple of pixels; stretching the mesh would change
+            // what every rack in the vehicle looks like to say it, so the difference is not modelled.
+            ammo_m829a4_vis = GameObject.Instantiate(Assets.ammo_m833.VisualModel);
+            ammo_m829a4_vis.name = "M829A4 visual";
+            ammo_m829a4.VisualModel = ammo_m829a4_vis;
+            ammo_m829a4.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m829a4;
+            ammo_m829a4.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m829a4;
+
             ammo_m830_vis = GameObject.Instantiate(Assets.ammo_m456.VisualModel);
             ammo_m830_vis.name = "M830 visual";
             ammo_m830.VisualModel = ammo_m830_vis;
@@ -376,6 +476,7 @@ namespace M1A1Abrams
             Util.CacheAmmo(ammo_m829a1);
             Util.CacheAmmo(ammo_m829a2);
             Util.CacheAmmo(ammo_m829a3);
+            Util.CacheAmmo(ammo_m829a4);
             Util.CacheAmmo(m830a1_forward_frag);
             Util.CacheAmmo(ammo_m830);
             Util.CacheAmmo(ammo_m830a1);
@@ -387,6 +488,7 @@ namespace M1A1Abrams
                 ["M829A1"] = clip_codex_m829a1,
                 ["M829A2"] = clip_codex_m829a2,
                 ["M829A3"] = clip_codex_m829a3,
+                ["M829A4"] = clip_codex_m829a4,
             };
 
             heat = new Dictionary<string, AmmoClipCodexScriptable>()
@@ -395,5 +497,86 @@ namespace M1A1Abrams
                 ["M830A1"] = clip_codex_m830a1,
             };
         }
+
+        /// <summary>
+        /// The ERA codices a dart was designed against, with the fraction of each section's nominal RHA
+        /// that still counts against it: the game multiplies an ERA section's line-of-sight thickness by
+        /// this ratio when the ammo's table names that armour (<c>LiveRound</c>,
+        /// <c>AmmoType.ArmorOptimizations</c>). The A3 carries 0.25 against Kontakt-5 and Relikt; a round
+        /// built specifically to defeat heavy ERA carries less, and that is the whole difference in the
+        /// penetration model between the two.
+        ///
+        /// The codices themselves live in another mod (Pact Increased Lethality), which is optional, so
+        /// they are found through reflection and the whole table is dropped when it is not loaded - the
+        /// same way this file treats every other optional armour source. Returns null rather than throwing:
+        /// an optional mod changing its internals must not take the M1A1's ammunition down with it.
+        /// </summary>
+        private static AmmoType.ArmorOptimization[] HeavyEraOptimizations(float rha_ratio)
+        {
+            try
+            {
+                Type era_schema_type = Type.GetType(Assembly.CreateQualifiedName(
+                    "PactIncreasedLethality", "PactIncreasedLethality.EraSchema"));
+                Type kontakt5_type = Type.GetType(Assembly.CreateQualifiedName(
+                    "PactIncreasedLethality", "PactIncreasedLethality.Kontakt5"));
+                Type relikt_type = Type.GetType(Assembly.CreateQualifiedName(
+                    "PactIncreasedLethality", "PactIncreasedLethality.Relikt"));
+
+                if (era_schema_type == null || kontakt5_type == null || relikt_type == null)
+                {
+                    return null;
+                }
+
+                FieldInfo era_so = era_schema_type.GetField("era_so", BindingFlags.Public | BindingFlags.Instance);
+
+                if (era_so == null)
+                {
+                    return null;
+                }
+
+                AmmoType.ArmorOptimization[] optimizations = new AmmoType.ArmorOptimization[]
+                {
+                    new AmmoType.ArmorOptimization() {
+                        Armor = EraCodex(era_so, kontakt5_type),
+                        RhaRatio = rha_ratio
+                    },
+
+                    new AmmoType.ArmorOptimization() {
+                        Armor = EraCodex(era_so, relikt_type),
+                        RhaRatio = rha_ratio
+                    }
+                };
+
+                if (optimizations[0].Armor == null || optimizations[1].Armor == null)
+                {
+                    return null;
+                }
+
+                return optimizations;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// One ERA schema's armour codex, out of the schema instance its class publishes as a static field.
+        /// </summary>
+        private static ArmorCodexScriptable EraCodex(FieldInfo era_so, Type era_type)
+        {
+            FieldInfo schema = era_type.GetField("schema", BindingFlags.Static | BindingFlags.Public);
+
+            if (schema == null)
+            {
+                return null;
+            }
+
+            object instance = schema.GetValue(null);
+
+            return instance == null ? null : era_so.GetValue(instance) as ArmorCodexScriptable;
+        }
     }
 }
+
+

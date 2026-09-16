@@ -1,17 +1,10 @@
-﻿using System.Collections.Generic;
-using MelonLoader;
+using System.Collections.Generic;
 
 namespace ModUtil
 {
     internal class ModuleManager
     {
-        internal static Dictionary<string, Module> modules = new Dictionary<string, Module>();
-        private string mod_id;
-
-        public ModuleManager(string mod_id)
-        {
-            this.mod_id = mod_id;
-        }
+        private readonly Dictionary<string, Module> modules = new Dictionary<string, Module>();
 
         public void Add(string id, Module module)
         {
@@ -20,44 +13,27 @@ namespace ModUtil
 
         public void UnloadAllDynamicAssets()
         {
-            foreach (string id in modules.Keys)
+            foreach (Module module in modules.Values)
             {
-                Module module = modules[id];
-                bool dynamic_unloaded = module.TryUnloadDynamicAssets();
-
-                if (dynamic_unloaded)
-                {
-                    MelonLogger.Msg(mod_id + " dynamic assets unloaded from module: " + id);
-                }
+                module.TryUnloadDynamicAssets();
             }
         }
 
         public void LoadAllDynamicAssets()
         {
-            foreach (string id in modules.Keys)
+            foreach (Module module in modules.Values)
             {
-                Module module = modules[id];
-                bool loaded = module.TryLoadDynamicAssets();
-
-                if (loaded)
-                {
-                    MelonLogger.Msg(mod_id + " dynamic assets loaded from module: " + id);
-                }
+                module.TryLoadDynamicAssets();
             }
         }
 
         public void LoadAllStaticAssets()
         {
-            foreach (string id in modules.Keys)
+            foreach (Module module in modules.Values)
             {
-                Module module = modules[id];
-                bool static_loaded = module.TryLoadStaticAssets();
-
-                if (static_loaded)
-                {
-                    MelonLogger.Msg(mod_id + " static assets loaded from module: " + id);
-                }
+                module.TryLoadStaticAssets();
             }
         }
     }
 }
+
