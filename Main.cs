@@ -1,4 +1,3 @@
-using System;
 using System.Linq;    // Util.menu_screens is an array
 using MelonLoader;
 using M1A1Abrams;      // the assembly attributes below name the mod type
@@ -32,18 +31,8 @@ namespace M1A1Abrams
 
         public override void OnInitializeMelon()
         {
-            // The tracker holds the player's aim input off the fire control while it is driving it,
-            // and takes over the traverse rate its lead is built from (see CrowsAimLock and
-            // CrowsLeadLock). A failure here is worth a loud line: without it the impact marker
-            // follows the mouse.
-            try
-            {
-                HarmonyInstance.PatchAll();
-            }
-            catch (Exception)
-            {
-            // The call is best-effort: a failure here leaves the previous state alone.
-            }
+            // MelonLoader automatically applies this assembly's Harmony patches.
+            // Patching again can overwrite the M1 -> M1IP prefix state before its postfix runs.
 
             module_manager = new ModuleManager();
             MelonPreferences_Category cfg = MelonPreferences.CreateCategory("M1A1Config");
