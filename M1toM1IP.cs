@@ -8,6 +8,7 @@ using HarmonyLib;
 using ModUtil;
 using Presets;
 using M1A1Abrams.Presets;
+using GHPC.Vehicle;
 
 namespace M1A1Abrams
 {
@@ -54,16 +55,25 @@ namespace M1A1Abrams
 
         private static void Postfix(TransmogState<M1Preset> __state, ref IUnit __result)
         {
-            if (__state.TransmogNeeded)
+            if (!__state.TransmogNeeded || __result == null)
             {
-                PreviouslyM1 comp = __result.transform.gameObject.AddComponent<PreviouslyM1>();
-                comp.enabled = false;
+                return;
+            }
 
-                if (__state.Preset != null)
-                {
-                    PresetMarker marker = __result.transform.gameObject.AddComponent<PresetMarker>();
-                    marker.Preset = __state.Preset;
-                }
+            Transform unit_root = __result.transform;
+            Vehicle vehicle = unit_root.GetComponent<Vehicle>()
+                ?? unit_root.GetComponentInChildren<Vehicle>(true);
+            GameObject marker_target = vehicle != null ? vehicle.gameObject : unit_root.gameObject;
+
+            PreviouslyM1 comp = marker_target.GetComponent<PreviouslyM1>()
+                ?? marker_target.AddComponent<PreviouslyM1>();
+            comp.enabled = false;
+
+            if (__state.Preset != null)
+            {
+                PresetMarker marker = marker_target.GetComponent<PresetMarker>()
+                    ?? marker_target.AddComponent<PresetMarker>();
+                marker.Preset = __state.Preset;
             }
         }
     }

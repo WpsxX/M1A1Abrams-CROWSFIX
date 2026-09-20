@@ -283,6 +283,17 @@ namespace M1A1Abrams
 
         private static readonly System.Collections.Generic.HashSet<int> converted_vehicle_ids = new System.Collections.Generic.HashSet<int>();
 
+        private static T FindSpawnMarker<T>(Vehicle vic) where T : Component
+        {
+            if (vic == null)
+            {
+                return null;
+            }
+
+            T marker = vic.GetComponent<T>() ?? vic.GetComponentInParent<T>();
+            return marker ?? vic.GetComponentInChildren<T>(true);
+        }
+
         internal static void ResetConversionState()
         {
             converted_vehicle_ids.Clear();
@@ -352,7 +363,9 @@ namespace M1A1Abrams
             MPATManager mpat_manager = vic_go.AddComponent<MPATManager>();
             mpat_manager.AmmoCachedIdx = Ammo_120mm.ammo_m830a1.CachedIndex;
 
-            bool is_m1ip = vic.UniqueName == "M1IP Abrams" && vic.GetComponent<PreviouslyM1>() == null;
+            // A converted M1 uses the M1IP prefab, but it remains an M1E1 for configuration.
+            // UnitSpawner may put its spawn marker on the unit root instead of the Vehicle object.
+            bool is_m1ip = vic.UniqueName == "M1IP Abrams" && FindSpawnMarker<PreviouslyM1>(vic) == null;
             var playerUnit = PlayerInput.Instance?.CurrentPlayerUnit;
             bool player_controlled = playerUnit != null && vic.gameObject == playerUnit.gameObject;
 
@@ -373,7 +386,7 @@ namespace M1A1Abrams
             {
                 PresetManager<M1Preset> preset_manager = is_m1ip ? preset_manager_m1ip : preset_manager_m1;
                 M1Preset preset = preset_manager == null ? null : preset_manager.ChoosePreset();
-                PresetMarker marker = vic.GetComponent<PresetMarker>();
+                PresetMarker marker = FindSpawnMarker<PresetMarker>(vic);
 
                 if (marker != null)
                 {
@@ -645,7 +658,6 @@ namespace M1A1Abrams
         }
     }
 }
-
 
 
 
