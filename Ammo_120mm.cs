@@ -99,7 +99,6 @@ namespace M1A1Abrams
             ammo_m827.Mass = 4.64f;
             ammo_m827.SectionalArea = 0.0012f;
             ammo_m827.SpallMultiplier = 1.15f;
-            ammo_m827.CachedIndex = -1;
 
             Util.Coalesce(ref ammo_codex_m827);
             ammo_codex_m827.AmmoType = ammo_m827;
@@ -127,7 +126,6 @@ namespace M1A1Abrams
             ammo_m829.SectionalArea = 0.0009f;
             ammo_m829.SpallMultiplier = 1.15f;
             ammo_m829.Coeff = 0.20f;
-            ammo_m829.CachedIndex = -1;
 
             Util.Coalesce(ref ammo_codex_m829);
             ammo_codex_m829.AmmoType = ammo_m829;
@@ -157,7 +155,6 @@ namespace M1A1Abrams
             ammo_m829a1.Mass = 4.6f;
             ammo_m829a1.SectionalArea = 0.00082f;
             ammo_m829a1.Coeff = 0.20f;
-            ammo_m829a1.CachedIndex = -1;
 
             Util.Coalesce(ref ammo_codex_m829a1);
             ammo_codex_m829a1.AmmoType = ammo_m829a1;
@@ -187,7 +184,6 @@ namespace M1A1Abrams
             ammo_m829a2.Mass = 4.6f;
             ammo_m829a2.SectionalArea = 0.00082f;
             ammo_m829a2.Coeff = 0.20f;
-            ammo_m829a2.CachedIndex = -1;
 
             Util.Coalesce(ref ammo_codex_m829a2);
             ammo_codex_m829a2.AmmoType = ammo_m829a2;
@@ -217,7 +213,6 @@ namespace M1A1Abrams
             ammo_m829a3.Mass = 5.2f;
             ammo_m829a3.SectionalArea = 0.00086f;
             ammo_m829a3.Coeff = 0.22f;
-            ammo_m829a3.CachedIndex = -1;
 
             ammo_m829a3.ArmorOptimizations = HeavyEraOptimizations(0.25f);
 
@@ -317,7 +312,6 @@ namespace M1A1Abrams
             // 25 = 608 mm at 2,000 m. That is what "significantly enhanced against heavy ERA" is worth here;
             // it is deliberately *not* expressed as extra `RhaPenetration`, which would double-count it.
             ammo_m829a4.ArmorOptimizations = HeavyEraOptimizations(0.125f);
-            ammo_m829a4.CachedIndex = -1;
 
             Util.Coalesce(ref ammo_codex_m829a4);
             ammo_codex_m829a4.AmmoType = ammo_m829a4;
@@ -347,7 +341,6 @@ namespace M1A1Abrams
             ammo_m830.ShatterOnRicochet = false;
             ammo_m830.DetonateSpallCount = 40;
             ammo_m830.SectionalArea = 0.0095f;
-            ammo_m830.CachedIndex = -1;
 
             Util.Coalesce(ref ammo_codex_m830);
             ammo_codex_m830.AmmoType = ammo_m830;
@@ -380,7 +373,6 @@ namespace M1A1Abrams
             ammo_m830a1.DetonateSpallCount = 60;
             ammo_m830a1.MaxSpallRha = 35f;
             ammo_m830a1.SectionalArea = 0.0055f;
-            ammo_m830a1.CachedIndex = -1;
 
             Util.Coalesce(ref ammo_codex_m830a1);
             ammo_codex_m830a1.AmmoType = ammo_m830a1;
@@ -418,7 +410,6 @@ namespace M1A1Abrams
                 Flags = ParticleEffectsManager.ImpactModifierFlags.Small,
                 MinFilterStrictness = ParticleEffectsManager.FilterStrictness.Low
             };
-            m830a1_forward_frag.CachedIndex = -1;
 
             ammo_m827_vis = GameObject.Instantiate(Assets.ammo_m833.VisualModel);
             ammo_m827_vis.name = "M829 visual";

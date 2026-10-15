@@ -589,7 +589,7 @@ namespace M1A1Abrams
 
             if (samples == 0) WarmStart(position, dt);
 
-            if (!Predict(dt)) { Reset(); Seed(position); return false; }
+            if (!Predict(dt)) { Reset(); Seed(position); last = now; return false; }
 
             double m = Measure(position, velocity, velocityValid);
             if (!CrowsPredictor.Finite(m))
@@ -598,6 +598,7 @@ namespace M1A1Abrams
                 // definiteness and nothing downstream of it would mean anything.
                 Reset();
                 Seed(position);
+                last = now;
                 return false;
             }
 
@@ -616,6 +617,7 @@ namespace M1A1Abrams
                     // Six in a row is not an outlier, it is a different target.
                     Reset();
                     Seed(position);
+                    last = now;
                 }
                 Healthy = false;
                 return false;
@@ -626,6 +628,7 @@ namespace M1A1Abrams
             {
                 Reset();
                 Seed(position);
+                last = now;
                 return false;
             }
             Adapt(m, count);
@@ -1059,7 +1062,15 @@ namespace M1A1Abrams
         private const double Gravity = 9.81;
         private const double Step = 0.02;
         private const double MaximumTime = 12.0;
-        private const double Ceiling = 3.0;
+        /// <summary>
+        /// The elevation the bracket closes at: the angle of the far peak, past which range falls as
+        /// elevation climbs. Bisection needs range to rise with elevation across the whole bracket, so
+        /// the top of it has to be the peak itself and not the end of a convenient range of angles. This
+        /// gun peaks near 2.31 degrees; 3.0 degrees is over the top of that curve, where the round is
+        /// still in the air when the integration runs out and the shot has no range to compare at all.
+        /// The peak is flat, so the exact angle matters far less than being on the near side of it.
+        /// </summary>
+        private const double Ceiling = 2.31;
         private const int Bisections = 22;
         private const int CacheSize = 64;
 
@@ -1101,8 +1112,12 @@ namespace M1A1Abrams
         /// evaluation rather than the first - that is what BallisticComputer does (its RK4 does not use
         /// k1 in the sum), and a replica that "fixed" it would disagree with every round the game fires.
         /// </summary>
-        private static void Shot(double elevationDegrees, out double range, out double time, out double fall)
+        private static bool Shot(double elevationDegrees, out double range, out double time, out double fall)
         {
+            range = 0;
+            time = 0;
+            fall = 0;
+
             double radians = elevationDegrees * Math.PI / 180.0;
             double px = 0, py = 0, pz = 0;
             double vx = 0, vy = muzzle * Math.Sin(radians), vz = muzzle * Math.Cos(radians);
@@ -1152,9 +1167,19 @@ namespace M1A1Abrams
                 elapsed += Step;
             }
 
+            // Falling out of the loop means the shot had not come down inside MaximumTime, and the
+            // position it has reached is then not a range at all: the game's own measure of the range
+            // for a round that is still in the air is the distance to where it is, which climbs as long
+            // as it climbs. The game hands that number to a display; this class hands it to a bisection
+            // that assumes range rises with elevation, so an unconverged shot is reported as no answer.
+            // Past the apogee the returning leg would give a genuine crossing, and it is beyond the
+            // flight time the table is built for, so nothing that fires inside the table can reach here.
+            if (crossed <= 0) return false;
+
             range = Math.Sqrt(px * px + py * py + pz * pz);      // the game's own measure of the range
-            time = crossed > 0 ? crossed : elapsed;
+            time = crossed;
             fall = range * Math.Tan(radians);                    // and the game's own definition of the fall
+            return true;
         }
 
         /// <summary>The elevation that reaches a range, by bisection, and the flight time it has.</summary>
@@ -1292,6 +1317,14 @@ namespace M1A1Abrams
         private const int Bands = 4;
         private static readonly double[] BandStart = { 0, 500, 1000, 1500 };
 
+        /// <summary>
+        /// The far edge of the last band, in metres, and the range past which the correction table has
+        /// nothing to say. Shared so the band a range falls in and the range Observe will accept cannot
+        /// disagree: an upper bound only Observe knew about would let a band be written by Confirm at a
+        /// range no observation is ever taken at, leaving that band to hold its opening value forever.
+        /// </summary>
+        private const double BandEnd = 5000;
+
         private readonly double[] right = new double[Bands];
         private readonly double[] up = new double[Bands];
 
@@ -1303,7 +1336,7 @@ namespace M1A1Abrams
         /// <summary>Which band a range falls in, or -1 when it is outside every band.</summary>
         private static int BandOf(double range)
         {
-            if (!CrowsPredictor.Finite(range) || range < BandStart[0] || range >= 5500) return -1;
+            if (!CrowsPredictor.Finite(range) || range < BandStart[0] || range >= BandEnd) return -1;
             for (int band = Bands - 1; band >= 0; band--) if (range >= BandStart[band]) return band;
             return -1;
         }
@@ -1326,7 +1359,7 @@ namespace M1A1Abrams
         internal void Observe(double rightError, double upError, double range)
         {
             if (!CrowsPredictor.Finite(rightError) || !CrowsPredictor.Finite(upError)
-                || !CrowsPredictor.Finite(range) || range < 50 || range > 5000) return;
+                || !CrowsPredictor.Finite(range) || range < 50 || range > BandEnd) return;
 
             int band = BandOf(range);
 

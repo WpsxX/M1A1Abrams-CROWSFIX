@@ -22,8 +22,9 @@ namespace ModUtil
                 LoadStaticAssets();
                 static_assets_loaded = true;
             }
-            catch (Exception)
+            catch (Exception error)
             {
+                MelonLoader.MelonLogger.Error("[M1A1] " + GetType().Name + " static assets failed: " + error);
                 return false;
             }
 
@@ -40,8 +41,9 @@ namespace ModUtil
             {
                 LoadDynamicAssets();
             }
-            catch (Exception)
+            catch (Exception error)
             {
+                MelonLoader.MelonLogger.Error("[M1A1] " + GetType().Name + " dynamic assets failed: " + error);
                 DynamicAssetLoadSucceeded = false;
 
                 // A module can create several objects before a later lookup fails.  The
@@ -54,8 +56,9 @@ namespace ModUtil
                 {
                     UnloadDynamicAssets();
                 }
-                catch (Exception)
+                catch (Exception cleanupError)
                 {
+                    MelonLoader.MelonLogger.Warning("[M1A1] " + GetType().Name + " rollback failed: " + cleanupError);
                 }
             }
 
@@ -72,9 +75,9 @@ namespace ModUtil
             {
                 UnloadDynamicAssets();
             }
-            catch (Exception)
+            catch (Exception error)
             {
-            // The call is best-effort: a failure here leaves the previous state alone.
+                MelonLoader.MelonLogger.Warning("[M1A1] " + GetType().Name + " unload failed: " + error);
             }
             finally
             {

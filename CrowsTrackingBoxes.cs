@@ -241,6 +241,16 @@ namespace M1A1Abrams
             float min_half, float max_half, float max_centre_shift,
             out Vector3 local_centre, out Vector3 local_half)
         {
+            // A destroyed or unset root would throw on the very next line. The caller wants a usable
+            // box whatever happens, and a centre at the aim with the minimum half extent is the same
+            // answer the fallback measurement would give for a model it could not measure.
+            if (root == null)
+            {
+                local_centre = Vector3.zero;
+                local_half = Vector3.one * Mathf.Max(min_half, 0f);
+                return;
+            }
+
             Vector3 scale = root.lossyScale;
             scale = new Vector3(Mathf.Max(Mathf.Abs(scale.x), 1e-4f),
                 Mathf.Max(Mathf.Abs(scale.y), 1e-4f), Mathf.Max(Mathf.Abs(scale.z), 1e-4f));

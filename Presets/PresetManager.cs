@@ -78,9 +78,9 @@ namespace Presets
                 }
 
             }
-            catch (Exception)
+            catch (Exception error)
             {
-            // The call is best-effort: a failure here leaves the previous state alone.
+                MelonLogger.Error("[M1A1] Could not load preset bundle '" + full_path + "': " + error);
             }
         }
 

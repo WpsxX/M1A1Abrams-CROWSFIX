@@ -21,6 +21,10 @@ Thanks also to **Vigilante** for the M153 CROWS model and to **DavidFalke** for 
 # M1A1 Abrams
 A mod for Gunner, HEAT, PC! Requires [MelonLoader](https://github.com/LavaGang/MelonLoader/)
 
+Compatible with 20261014.
+
+Fixes bugs related to CROWS.
+
 Gameplay/Install guide: https://www.youtube.com/watch?v=e_qNIyBb2SA
 
 If you get an error launching through Steam you will need to run the game executable directly.

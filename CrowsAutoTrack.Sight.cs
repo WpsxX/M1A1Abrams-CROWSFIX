@@ -462,24 +462,6 @@ namespace M1A1Abrams
         /// rather than the target, and tie the camera to the gun servo, so every twitch of the barrel -
         /// and every rewrite of the range - went into the picture.
         /// </summary>
-        private void KeepAlignmentClean()
-        {
-            for (int i = 0; i < optics.Count; i++)
-            {
-                UsableOptic optic = optics[i];
-
-                if (optic == null || i >= original_alignment.Count)
-                {
-                    continue;
-                }
-
-                if (optic.Alignment != original_alignment[i])
-                {
-                    optic.Alignment = original_alignment[i];
-                }
-            }
-        }
-
         private void RestoreAlignment()
         {
             for (int i = 0; i < optics.Count; i++)
@@ -571,6 +553,7 @@ namespace M1A1Abrams
 
         private void OnDestroy()
         {
+            if (weapon != null) weapon.Fired -= OnRoundFired;
             // A static camera callback is exactly the kind of thing that outlives a mission and then
             // calls into a destroyed tracker, so it is unhooked before anything else. The held aim input
             // goes with it, or the next mission would start with a fire control that ignores the player.

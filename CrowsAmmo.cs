@@ -56,8 +56,10 @@ namespace M1A1Abrams
             }
             if (ammo_codex_50tracer == null) ammo_codex_50tracer = ammo_codex_m8;
 
-            AmmoCodexScriptable m903 = BuildSlap(CrowsAmmoRules.M903, false, CrowsAmmoRules.M903Mass);
-            AmmoCodexScriptable m962 = BuildSlap("M962 SLAP-T", true, CrowsAmmoRules.M962Mass);
+            // M962 is the same round with a tracer element, so it shares every
+            // ballistic number with M903; UseTracer remains independent of the M8 impact effect.
+            AmmoCodexScriptable m903 = BuildSlap(CrowsAmmoRules.M903, false);
+            AmmoCodexScriptable m962 = BuildSlap(CrowsAmmoRules.M962, true);
             TracerAmmo = m962.AmmoType;
             BuildRaufossBelt();
             owned.Add(ammo_codex_raufoss);
@@ -70,7 +72,7 @@ namespace M1A1Abrams
             return true;
         }
 
-        private static AmmoCodexScriptable BuildSlap(string name, bool tracer, float mass)
+        private static AmmoCodexScriptable BuildSlap(string name, bool tracer)
         {
             AmmoType ammo = new AmmoType();
             Util.ShallowCopy(ammo, (tracer ? ammo_codex_50tracer : ammo_codex_m8).AmmoType);
@@ -79,17 +81,25 @@ namespace M1A1Abrams
             ammo.Category = AmmoType.AmmoCategory.Penetrator;
             ammo.Caliber = 12.7f; // barrel caliber; sectional area describes the 7.62 mm flying core
             ammo.MuzzleVelocity = CrowsAmmoRules.Velocity;
-            ammo.Mass = mass; // flying core only, not the 35 g bullet+sabot assembly
+            ammo.Mass = CrowsAmmoRules.CoreMass; // flying core only, not the 35 g bullet+sabot assembly
             ammo.SectionalArea = CrowsAmmoRules.Area;
-            ammo.Coeff = CrowsAmmoRules.DragCoefficient(mass);
+            ammo.Coeff = CrowsAmmoRules.DragCoeff;
             ammo.RhaPenetration = CrowsAmmoRules.MuzzlePenetration;
+            // SLAP uses the same physical penetrator radius as the API donor, but
+            // the smaller tungsten core otherwise produces a very sparse and weak
+            // behind-armour effect. Keep the radius (it controls the cone geometry)
+            // and raise only the game's spall count/strength controls.
+            ammo.SpallMultiplier = 2f;
+            ammo.MinSpallRha = 3f;
+            ammo.MaxSpallRha = 20f;
             ammo.UseErrorCorrection = true;
             ammo.TntEquivalentKg = 0f;
             ammo.UseTracer = tracer;
             ammo.VisualType = LiveRoundMarshaller.LiveRoundVisualType.Bullet; // game's red US bullet tracer
             ammo.ImpactAudio = GHPC.Audio.ImpactAudioType.Bullet;
-            // SLAP has no incendiary filler. Supply a complete kinetic descriptor so
-            // the API donor's incendiary-only filter cannot suppress its impact effect.
+            // An API donor can carry incendiary-specific effect flags. Describe SLAP
+            // explicitly as a large kinetic .50 impact so the new effect database can
+            // always select visible dust/spark hit VFX for both M903 and M962.
             ammo.ImpactEffectDescriptor = new ParticleEffectsManager.ImpactEffectDescriptor
             {
                 HasImpactEffect = true,
@@ -100,6 +110,9 @@ namespace M1A1Abrams
                 Flags = ParticleEffectsManager.ImpactModifierFlags.Large,
                 MinFilterStrictness = ParticleEffectsManager.FilterStrictness.Low
             };
+            // Decal selection is already correct for the game's M8 API and is copied
+            // by value; only the particle effect needs the explicit SLAP descriptor.
+            ammo.ImpactDecalDescriptor = ammo_codex_m8.AmmoType.ImpactDecalDescriptor;
             ammo.ArmorOptimizations = new AmmoType.ArmorOptimization[0];
             ammo.CachedIndex = -1;
             Util.CacheAmmo(ammo);
@@ -132,7 +145,7 @@ namespace M1A1Abrams
 
         private static void Warn(string message)
         {
-            if (warnings.Add(message)) MelonLogger.Warning("[M1A1] " + message);
+            warnings.Add(message);
         }
 
         internal static void AttachTracerLimit(WeaponSystem weapon)

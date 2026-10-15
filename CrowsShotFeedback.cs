@@ -11,8 +11,8 @@ namespace M1A1Abrams
     /// solution the next one is fired with.
     ///
     /// Two hooks, and they are the whole of what the game offers for it. Where a round is fired
-    /// (WeaponSystem.Fire) gives the moment, the ammunition, the range and the point that was being
-    /// aimed at; where a round lands (OldLiveRound.logHit, which every impact path in the game funnels
+    /// (WeaponSystem.Fired) gives the actual LiveRound, the range and the point that was being
+    /// aimed at; where a round lands (LiveRound.logHit, which the current projectile impact paths funnel
     /// through) gives the point it actually went to. Between them is the error the rest of this module
     /// cannot see: boresight, superelevation the donated mount does not quite reproduce, wind, drift.
     ///
@@ -20,12 +20,9 @@ namespace M1A1Abrams
     /// is by name, and a missing type or a throwing game method leaves the lead exactly as it is - this
     /// is a correction on top of a solution that is already complete without it.
     ///
-    /// Attribution is by time and place rather than by round identity: there is no handle from a
-    /// WeaponSystem's shot to the OldLiveRound it becomes, so a fall of shot is credited to the station
-    /// that was aiming at that place, within a flight time and a fraction of the range of the point it
-    /// was aiming at. A neighbouring vehicle shooting at the same target contributes a valid
-    /// observation; one shooting at something else does not, because its round lands near a different
-    /// point.
+    /// Attribution requires the same LiveRound received from this weapon's Fired event.
+    /// Time and distance bounds reject stale or implausible observations; a neighbouring
+    /// vehicle's round cannot contribute a correction even at the same target.
     /// </summary>
     internal static class CrowsShotFeedback
     {
@@ -41,6 +38,7 @@ namespace M1A1Abrams
         private static CrowsAutoTrack driver;
 
         private static readonly bool[] pending_used = new bool[PendingCapacity];
+        private static readonly LiveRound[] pending_round = new LiveRound[PendingCapacity];
         private static readonly float[] pending_time = new float[PendingCapacity];
         private static readonly Vector3[] pending_aim = new Vector3[PendingCapacity];
         private static readonly float[] pending_range = new float[PendingCapacity];
@@ -67,6 +65,7 @@ namespace M1A1Abrams
         private static void ClearPending()
         {
             Array.Clear(pending_used, 0, PendingCapacity);
+            Array.Clear(pending_round, 0, PendingCapacity);
             pending_count = 0;
             pending_next = 0;
         }
@@ -79,21 +78,8 @@ namespace M1A1Abrams
                 float age = now - pending_time[i];
                 if (age >= 0f && age <= FlightWindow) continue;
                 pending_used[i] = false;
+                pending_round[i] = null;
                 pending_count--;
-            }
-        }
-
-        /// <summary>Whether this weapon is the one the watched station fires from.</summary>
-        internal static bool IsOurs(WeaponSystem weapon)
-        {
-            try
-            {
-                CrowsAutoTrack tracker = driver;
-                return tracker != null && weapon != null && tracker.Fires(weapon);
-            }
-            catch (Exception)
-            {
-                return false;
             }
         }
 
@@ -101,13 +87,13 @@ namespace M1A1Abrams
         /// A round has left. The point being aimed at is taken now, at the trigger, because that is the
         /// point the round was fired at; the target will have moved on by the time it lands.
         /// </summary>
-        internal static void Fired(WeaponSystem weapon)
+        internal static void Fired(WeaponSystem weapon, LiveRound round)
         {
             try
             {
                 CrowsAutoTrack tracker = driver;
 
-                if (tracker == null || weapon == null)
+                if (tracker == null || weapon == null || round == null)
                 {
                     return;
                 }
@@ -141,6 +127,7 @@ namespace M1A1Abrams
                 else pending_count++;
 
                 pending_used[slot] = true;
+                pending_round[slot] = round;
                 pending_time[slot] = now;
                 pending_aim[slot] = point;
                 pending_range[slot] = range;
@@ -156,11 +143,11 @@ namespace M1A1Abrams
         /// A round has landed. Credited to the shot waiting for it if it landed where that shot was
         /// aimed and soon enough to be it; anything else is somebody else's round and is ignored.
         /// </summary>
-        internal static void Impact(Vector3 point)
+        internal static void Impact(LiveRound round, Vector3 point)
         {
             try
             {
-                if (pending_count == 0 || driver == null)
+                if (round == null || pending_count == 0 || driver == null)
                 {
                     return;
                 }
@@ -171,7 +158,7 @@ namespace M1A1Abrams
                 float best_error = float.PositiveInfinity;
                 for (int i = 0; i < PendingCapacity; i++)
                 {
-                    if (!pending_used[i] || pending_range[i] <= 1f) continue;
+                    if (!pending_used[i] || pending_round[i] != round || pending_range[i] <= 1f) continue;
                     float strayed = (point - pending_aim[i]).magnitude;
                     if (strayed > pending_range[i] * AttributionFraction) continue;
                     float normalised = strayed / pending_range[i];
@@ -180,6 +167,7 @@ namespace M1A1Abrams
                 if (best < 0) return;
                 float range = pending_range[best];
                 pending_used[best] = false;
+                pending_round[best] = null;
                 pending_count--;
                 driver.NoteFallOfShot(point, range);
             }
@@ -220,33 +208,14 @@ namespace M1A1Abrams
             }
         }
 
-[HarmonyPatch(typeof(WeaponSystem), "Fire")]
-        private static class FirePatch
-        {
-            private static void Postfix(WeaponSystem __instance)
-            {
-                try
-                {
-                    if (IsOurs(__instance))
-                    {
-                        Fired(__instance);
-                    }
-                }
-                catch (Exception)
-                {
-                    // A patch that throws is worse than the error it measures.
-                }
-            }
-        }
-
-        [HarmonyPatch(typeof(OldLiveRound), "logHit")]
+        [HarmonyPatch(typeof(LiveRound), "logHit", new Type[] { typeof(Vector3) })]
         private static class ImpactPatch
         {
-            private static void Postfix(Vector3 hitPoint)
+            private static void Postfix(LiveRound __instance, Vector3 hitPoint)
             {
                 try
                 {
-                    Impact(hitPoint);
+                    Impact(__instance, hitPoint);
                 }
                 catch (Exception)
                 {

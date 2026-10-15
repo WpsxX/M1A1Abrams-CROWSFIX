@@ -29,7 +29,7 @@ namespace M1A1Abrams
     /// non-public member is reached through ModUtil.Reflect: the running game loads the official
     /// (non-publicized) Assembly-CSharp.
     /// </summary>
-    internal static class CROWS
+    internal static partial class CROWS
     {
         private const string ASSET_FOLDER = "m1a1assets";
         private const float MODEL_SCALE = 0.75f;
@@ -139,6 +139,12 @@ namespace M1A1Abrams
 
             void Update()
             {
+                // The in_use test below null-checks both active and active.FCS; this field was the one
+                // dereference left unguarded. A destroyed host would make SetStabsActive walk Mounts[]
+                // and throw, so bail out rather than drive a station that is not there any more. Unity's
+                // overloaded == reports a destroyed object as null, so that case is covered here too.
+                if (fcs == null) return;
+
                 PlayerInput input = PlayerInput.Instance;
                 WeaponSystemInfo active = input == null ? null : input.CurrentPlayerWeapon;
                 bool in_use = active != null
@@ -651,115 +657,6 @@ namespace M1A1Abrams
             }
         }
 
-        /// <summary>
-        /// Makes sure the borrowed .50 cal actually has a belt in it. The M85's AmmoFeed is meant to
-        /// load its first clip in Start(), which never happens on the CROWS clone: LoadedClipType stays
-        /// null, so the gun cannot fire and ReserveCount throws every frame from the HUD. The clip is
-        /// loaded here the way AmmoFeed.TryFinalFeedNewClip does it, without the reload stages.
-        /// </summary>
-        public class CrowsAmmoSetup : MonoBehaviour
-        {
-            public WeaponSystem weapon;
-            public AmmoType.AmmoClip clip;
-
-            void Start()
-            {
-                StartCoroutine(Setup());
-            }
-
-            private System.Collections.IEnumerator Setup()
-            {
-                yield return null; // let the game's own Awake/Start pass run first
-
-                AmmoFeed feed = weapon == null ? null : weapon.Feed;
-
-                if (feed == null)
-                {
-                    yield break;
-                }
-
-                if (feed.AmmoTypeInBreech == null)
-                {
-
-                    LoadBelt(feed);
-                }
-
-                yield return null;
-            }
-
-            private void LoadBelt(AmmoFeed feed)
-            {
-                if (feed.QueuedClipType == null)
-                {
-                    Reflect.SetProperty(feed, "QueuedClipType", clip);
-                }
-
-                Reflect.Set(feed, "_queuedClipTypeLockedIn", clip);
-
-                if (feed.ReadyRack != null)
-                {
-                    if (!feed.ReadyRack.RetrieveClipWithPattern(clip, -1))
-                    {
-                    }
-                }
-
-                System.Collections.Generic.Queue<AmmoType> belt =
-                    Reflect.Get<System.Collections.Generic.Queue<AmmoType>>(feed, "_feedClipMain");
-
-                if (belt == null)
-                {
-                    Reflect.SetProperty(feed, "LoadedClipType", clip);
-                    Reflect.SetProperty(feed, "AmmoTypeInBreech", clip.MinimalPattern[0].AmmoType);
-                    PublishRoundInBreech(feed);
-                    return;
-                }
-
-                belt.Clear();
-
-                for (int i = 0; i < clip.Capacity; i++)
-                {
-                    belt.Enqueue(clip.MinimalPattern[i % clip.MinimalPattern.Length].AmmoType);
-                }
-
-                // LoadedClipType must be set before the breech: it is what ReserveCount reads.
-                Reflect.SetProperty(feed, "LoadedClipType", clip);
-                Reflect.SetProperty(feed, "AmmoTypeInBreech", belt.Dequeue());
-
-                PublishRoundInBreech(feed);
-            }
-
-            /// <summary>
-            /// Tells the weapon - and through it the fire control - which round the belt put in the
-            /// breech.
-            ///
-            /// The round is chambered outside the game's own reload stages here, so the weapon is never
-            /// told, `CurrentAmmoType` stays null and the computer keeps solving for whatever placeholder
-            /// its prefab carried: a nameless 1785 m/s round, in this station's case. The superelevation
-            /// it dialled was then for a projectile twice as fast as the one leaving the barrel - 0.046
-            /// degrees at 500 m where the belt wants 0.183, so the rounds fell short by metres - and it
-            /// stayed that way until something else happened to chamber a round properly. This is the
-            /// "automatic sight setting" being fed the round it is setting the sight for.
-            /// </summary>
-            private void PublishRoundInBreech(AmmoFeed feed)
-            {
-                AmmoType round = feed.AmmoTypeInBreech;
-
-                if (weapon == null || round == null || weapon.CurrentAmmoType == round)
-                {
-                    return;
-                }
-
-                try
-                {
-                    Reflect.Call(weapon, "newRoundInBreech", round);
-                }
-                catch (Exception)
-                {
-                // The call is best-effort: a failure here leaves the previous state alone.
-                }
-            }
-        }
-
         public static void Init()
         {
             setup_failures.Clear();
@@ -806,19 +703,22 @@ namespace M1A1Abrams
 
         }
 
-        public static bool Mount(Vehicle vic, Transform origin, Vector3 position, bool alt_placement, int flir_generation = 1)
+        public static bool Mount(Vehicle vic, Transform origin, Vector3 position, bool alt_placement, UsableOptic main_gun_thermal)
         {
-            if (!ready)
+            if (!ready || main_gun_thermal == null || main_gun_thermal.slot == null)
             {
                 return false;
             }
 
             try
             {
-                return MountInternal(vic, origin, position, alt_placement, flir_generation);
+                return MountInternal(vic, origin, position, alt_placement, main_gun_thermal);
             }
-            catch (Exception)
+            catch (Exception e)
             {
+                // Silent here means "no CROWS and no explanation"; the station is optional, so a
+                // failure must stay non-fatal, but it must not stay anonymous.
+                Fail("mount threw: " + e.Message);
                 return false;
             }
         }
@@ -1043,6 +943,11 @@ namespace M1A1Abrams
             if (reticle_so.planes.Count == 0 || reticle_so.planes[0].elements.Count == 0)
             {
                 Fail("the T-55A reticle tree has an unexpected shape");
+                // reticle_so was already assigned above, so leaving it set would make the next Init()
+                // return at the guard at the top of this method and keep the half-built reticle for
+                // good. Cleared like the two shape checks below do.
+                reticle_cached = null;
+                reticle_so = null;
                 return;
             }
 
@@ -1256,7 +1161,7 @@ namespace M1A1Abrams
 
         // ------------------------------------------------------------------ mounting
 
-        private static bool MountInternal(Vehicle vic, Transform origin, Vector3 position, bool alt_placement, int flir_generation)
+        private static bool MountInternal(Vehicle vic, Transform origin, Vector3 position, bool alt_placement, UsableOptic main_gun_thermal)
         {
             GameObject model = UnityEngine.Object.Instantiate(crows_prefab, origin);
             model.name = "CROWS";
@@ -1268,13 +1173,41 @@ namespace M1A1Abrams
             model.transform.localPosition = position;
             model.transform.localEulerAngles = Vector3.zero;
 
-            GameObject mount = model.transform.Find("MOUNT").gameObject;
-            GameObject gun = model.transform.Find("GUN").gameObject;
-            GameObject gun_vis = gun.transform.Find("GUN VIS").gameObject;
-            GameObject mount_vis = mount.transform.Find("MOUNT VIS").gameObject;
-            GameObject gun_col = gun.transform.Find("GUN COLLIDER").gameObject;
-            GameObject mount_col = mount.transform.Find("MOUNT COLLIDER").gameObject;
-            GameObject gun_scripts = mount.transform.Find("GUN SCRIPTS").gameObject;
+            // Each of these lookups used to be dereferenced straight away, so a donor model missing any
+            // one of them threw a NullReferenceException out of Mount() and left the prefab's native
+            // objects behind. Checked up front, the failure is reported and the clone released instead -
+            // the same shape LoadModel() uses for the finds it does there.
+            Transform mount_tr = model.transform.Find("MOUNT");
+            Transform gun_tr = model.transform.Find("GUN");
+            Transform gun_vis_tr = gun_tr == null ? null : gun_tr.Find("GUN VIS");
+            Transform mount_vis_tr = mount_tr == null ? null : mount_tr.Find("MOUNT VIS");
+            Transform gun_col_tr = gun_tr == null ? null : gun_tr.Find("GUN COLLIDER");
+            Transform mount_col_tr = mount_tr == null ? null : mount_tr.Find("MOUNT COLLIDER");
+            Transform gun_scripts_tr = mount_tr == null ? null : mount_tr.Find("GUN SCRIPTS");
+
+            string missing = mount_tr == null ? "MOUNT"
+                : gun_tr == null ? "GUN"
+                : gun_vis_tr == null ? "GUN/GUN VIS"
+                : mount_vis_tr == null ? "MOUNT/MOUNT VIS"
+                : gun_col_tr == null ? "GUN/GUN COLLIDER"
+                : mount_col_tr == null ? "MOUNT/MOUNT COLLIDER"
+                : gun_scripts_tr == null ? "MOUNT/GUN SCRIPTS"
+                : null;
+
+            if (missing != null)
+            {
+                Fail(missing + " missing from the donor model");
+                UnityEngine.Object.Destroy(model);
+                return false;
+            }
+
+            GameObject mount = mount_tr.gameObject;
+            GameObject gun = gun_tr.gameObject;
+            GameObject gun_vis = gun_vis_tr.gameObject;
+            GameObject mount_vis = mount_vis_tr.gameObject;
+            GameObject gun_col = gun_col_tr.gameObject;
+            GameObject mount_col = mount_col_tr.gameObject;
+            GameObject gun_scripts = gun_scripts_tr.gameObject;
 
             mount.transform.localEulerAngles = Vector3.zero;
             gun.transform.localEulerAngles = Vector3.zero;
@@ -1486,6 +1419,13 @@ namespace M1A1Abrams
             fcs.TraverseBufferSeconds = 0.1f;
             fcs.DynamicLead = true;
 
+            // Manual lead includes horizontal and vertical target motion. Native
+            // inertial compensation uses the host's full world-space velocity;
+            // ATT replaces it with its own relative-motion solution while locked.
+            Reflect.Set(fcs, "InertiaLeadIncludesVertical", true);
+            Reflect.Set(fcs, "_horizontalLeadOnly", false);
+            fcs.InertialCompensation = true;
+
             // FireControlSystem.Awake() cached these before we changed the fields above, so
             // leaving manual mode would otherwise switch superelevation/lead back off.
             Reflect.Set(fcs, "_autoDumpViaPalmSwitches", true);
@@ -1531,32 +1471,12 @@ namespace M1A1Abrams
             flir_optic.slot.VisionType = NightVisionType.Thermal;
             flir_optic.slot.IsLinkedNightSight = true;
             flir_optic.slot.LinkedDaySight = optic_slot;
-            flir_optic.slot.BaseBlur = 0f;
             flir_optic.slot.VibrationBlurScale = 0f;
             flir_optic.slot.VibrationShakeMultiplier = 0f;
-            flir_optic.slot.CanToggleFlirPolarity = true;
-            // Keep generation 1 on the game's original FLIR. Generations 2 and 3
-            // use the same resolution/material overrides as the Abrams gunner sight.
-            if (flir_generation > 1)
-            {
-                flir_optic.slot.OverrideFLIRResolution = true;
-                Vector2Int crows_flir_resolution = flir_generation == 2
-                    ? M1A1.flir_gen2_res
-                    : M1A1.flir_gen3_res;
-                flir_optic.slot.FLIRWidth = crows_flir_resolution.x;
-                flir_optic.slot.FLIRHeight = crows_flir_resolution.y;
-                flir_optic.slot.FLIRBlitMaterialOverride = Assets.flir_blit_mat_green_no_scan;
-            }
+            ConfigureMainGunThermal(flir_optic, main_gun_thermal);
 
-            // The thermal picture is a render texture that the game stretches over the whole screen, and
-            // the thermal camera's field of view is matched to the main camera's *horizontal* one. If the
-            // texture's aspect is not the screen's, the picture is a different number of degrees tall than
-            // the screen-space markers assume, and every one of them sits at the wrong height - a few per
-            // cent of the distance from the crosshair, which is what creeps a locked box down the picture.
-            // Keeping the two aspects equal is the first half of the fix; CrowsAutoTrack also corrects its
-            // own projection for the difference, so changing resolution mid-mission cannot bring it back.
-            // The thermal sight is aligned exactly like the day sight, and that is the whole of the thermal
-            // lock fix.
+            // Main-gun FLIR resolutions may have a different aspect ratio from the screen.
+            // CrowsAutoTrack corrects marker projection using the thermal camera's actual aspect.
             //
             // The donor M85 gunsight this is cloned from is OpticAlignment.Fixed with UseRotationForShake
             // on, and its own LateUpdate therefore *resets* the slot's local rotation to the one it was
@@ -2149,8 +2069,18 @@ namespace M1A1Abrams
             {
                 GameObject box = UnityEngine.Object.Instantiate(box_canvas, optic.transform);
                 SanitizeBorrowed(box, model_root);
-                box.transform.GetChild(0).localPosition = borders[i][0];
-                box.transform.GetChild(0).localEulerAngles = borders[i][1];
+
+                // box_canvas is cloned from the Bradley GPS canvas, a third-party hierarchy whose child
+                // count is only ever "expected" to be three - SanitizeBorrowed already defends against
+                // there being more, so this defends against there being none. Without the check the two
+                // assignments below threw and took the rest of the border strips with them.
+                Transform child = box.transform.childCount > 0 ? box.transform.GetChild(0) : null;
+
+                if (child != null)
+                {
+                    child.localPosition = borders[i][0];
+                    child.localEulerAngles = borders[i][1];
+                }
 
                 if (i == 2 || i == 3)
                 {
@@ -2345,6 +2275,7 @@ namespace M1A1Abrams
             }
 
             Transform[] all = canvas.GetComponentsInChildren<Transform>(true);
+            int hidden = 0;
 
             for (int i = 0; i < all.Length; i++)
             {
@@ -2362,12 +2293,20 @@ namespace M1A1Abrams
                 if (name == "autocannon ammo types" || name == "HE selected" || name == "AP selected")
                 {
                     all[i].gameObject.SetActive(false);
+                    hidden++;
                 }
+            }
+
+            // The names are deliberately matched rather than the hierarchy, so a renamed or localised
+            // donor canvas would otherwise let the indicator reappear with nothing said about it.
+            if (hidden == 0)
+            {
+                Fail("the donor sight canvas has no ammo indicator to hide - the donor hierarchy may have been renamed");
             }
         }
         private static void Fail(string reason)
         {
-            if (setup_failures.Add(reason)) MelonLogger.Warning("[M1A1] CROWS: " + reason);
+            setup_failures.Add(reason);
         }
     }
 }

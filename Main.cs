@@ -1,4 +1,4 @@
-using System.Linq;    // Util.menu_screens is an array
+using System.Linq;
 using MelonLoader;
 using M1A1Abrams;      // the assembly attributes below name the mod type
 using GHPC.State;
@@ -47,20 +47,23 @@ namespace M1A1Abrams
         }
 
         public override void OnSceneWasLoaded(int idx, string scene_name) {
-            module_manager.UnloadAllDynamicAssets();
-            M1A1.ResetConversionState();
-            vics = null;
-            game_manager = null;
-
-            if (scene_name == "MainMenu2_Scene" || scene_name == "MainMenu2-1_Scene" || scene_name == "t64_menu")
+            if (Util.MenuScreens.Contains(scene_name))
             {
+                ResetMissionAssets();
+                valid_scene_count = 0;
                 module_manager.LoadAllStaticAssets();
                 AssetUtil.ReleaseVanillaAssets();
             }
 
-            if (Util.menu_screens.Contains(scene_name)) return;
+            if (Util.MenuScreensWithLoader.Contains(scene_name)) return;
 
             valid_scene_count++;
+
+            // Unload once at the first mission stage, rather than on every scene callback.
+            if (valid_scene_count == 1)
+            {
+                ResetMissionAssets();
+            }
 
             if (valid_scene_count == 2)
             {       
@@ -71,6 +74,14 @@ namespace M1A1Abrams
                 M1A1.Init();
                 valid_scene_count = 0;
             }
+        }
+
+        private void ResetMissionAssets()
+        {
+            module_manager.UnloadAllDynamicAssets();
+            M1A1.ResetConversionState();
+            vics = null;
+            game_manager = null;
         }
     }
 }

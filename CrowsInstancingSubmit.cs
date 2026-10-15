@@ -439,7 +439,11 @@ namespace M1A1Abrams
                     reported = true;
                 }
 
-                return false;
+                // Nothing submitted means nothing was done here: when the exact key and nearest fallback
+                // both miss, every group is skipped and the renderer must still get the frame, otherwise
+                // its own SubmitCollectedInstances never runs and objects flicker out while turning fast.
+                // Same shape as the catch below - hand the frame back only while nothing is drawn.
+                return !touched;
             }
             catch (Exception)
             {

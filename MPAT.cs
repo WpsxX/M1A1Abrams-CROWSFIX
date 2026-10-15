@@ -73,7 +73,10 @@ namespace M1A1Abrams
 
         private LiveRound live_round;
         private static float[] ranges = new float[] { 10f, 30f };
-        private AmmoType dummy_he;
+        // static so the early-out below actually works: the round is created lazily from the mission's
+        // own objects, which are the same for every MPAT. AmmoType is a plain class, so the cached
+        // reference keeps its DetonateEffect alive for as long as this field points at it.
+        private static AmmoType dummy_he;
 
         void Awake()
         {
@@ -82,7 +85,15 @@ namespace M1A1Abrams
             if (dummy_he != null) return;
 
             dummy_he = new AmmoType();
-            dummy_he.DetonateEffect = Resources.FindObjectsOfTypeAll<GameObject>().Where(o => o.name == "HE_explosion").First();
+            // FirstOrDefault, not First: with no match the exception this used to throw aborted
+            // AddComponent<MPAT> and the proximity round silently lost its effect. No match now just
+            // leaves the cache empty so a later round can try again.
+            dummy_he.DetonateEffect = Resources.FindObjectsOfTypeAll<GameObject>().Where(o => o.name == "HE_explosion").FirstOrDefault();
+            if (dummy_he.DetonateEffect == null)
+            {
+                dummy_he = null;
+                return;
+            }
             dummy_he.ImpactEffectDescriptor = new ParticleEffectsManager.ImpactEffectDescriptor()
             {
                 HasImpactEffect = true,

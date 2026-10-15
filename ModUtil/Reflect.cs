@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
+using MelonLoader;
 
 namespace ModUtil
 {
@@ -39,11 +40,8 @@ namespace ModUtil
             internal Type[] parameters;
         }
 
-        private static void Miss(string what)
+        internal static void Miss(string what)
         {
-            if (reported.Add(what))
-            {
-            }
         }
 
         private static string MemberName(Type type, string name)
@@ -233,7 +231,16 @@ namespace ModUtil
                 }
             }
 
-            field.SetValue(target, value);
+            try
+            {
+                field.SetValue(target, value);
+            }
+            catch (Exception e)
+            {
+                // initonly fields reach FindField but reject every write, and a throw here lands in
+                // the caller's per-frame loop; report it once and let the caller carry on.
+                Miss("write " + MemberName(target.GetType(), name) + " (" + e.GetType().Name + ")");
+            }
         }
 
         /// <summary>One compiled setter per field, per value type; see Set&lt;T&gt;.</summary>
@@ -283,7 +290,15 @@ namespace ModUtil
                 return;
             }
 
-            field.SetValue(target, value);
+            try
+            {
+                field.SetValue(target, value);
+            }
+            catch (Exception e)
+            {
+                // See Set<T>: an initonly or otherwise unwritable field must not throw into the caller.
+                Miss("write " + MemberName(target.GetType(), name) + " (" + e.GetType().Name + ")");
+            }
         }
 
         public static object GetStatic(Type type, string name)
@@ -303,7 +318,15 @@ namespace ModUtil
             FieldInfo field = FindField(type, name);
             if (field != null)
             {
-                field.SetValue(null, value);
+                try
+                {
+                    field.SetValue(null, value);
+                }
+                catch (Exception e)
+                {
+                    // A static initonly constant (BufferedCameraFollow.SNAPPINESS) lives here; see Set<T>.
+                    Miss("write " + MemberName(type, name) + " (" + e.GetType().Name + ")");
+                }
             }
         }
 

@@ -30,13 +30,14 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <!-- Point GameDir at your Gunner, HEAT, PC! install, e.g.
          dotnet build M1A1Abrams.csproj -c Release -p:GameDir="D:\Games\Gunner HEAT PC" -->
   <PropertyGroup>
     <GameDir Condition=" '$(GameDir)' == '' ">E:\SteamLibrary\steamapps\common\Gunner HEAT PC</GameDir>
-    <ManagedDir>$(GameDir)\Bin\GHPC_Data\Managed</ManagedDir>
-    <MelonDir>$(GameDir)\Bin\MelonLoader\net35</MelonDir>
+    <ManagedDir Condition=" '$(ManagedDir)' == '' ">$(GameDir)\Bin\GHPC_Data\Managed</ManagedDir>
+    <MelonDir Condition=" '$(MelonDir)' == '' ">$(GameDir)\Bin\MelonLoader\net35</MelonDir>
   </PropertyGroup>
   <ItemGroup>
     <!--
@@ -123,6 +124,8 @@
     <Compile Include="Ammo_120mm.cs" />
     <Compile Include="Assets.cs" />
     <Compile Include="CROWS.cs" />
+    <Compile Include="CROWS.Ammo.cs" />
+    <Compile Include="CROWS.Thermal.cs" />
     <Compile Include="CrowsAmmo.cs" />
     <Compile Include="CrowsAmmoRules.cs" />
     <Compile Include="M1Preset.cs" />
@@ -130,6 +133,7 @@
     <Compile Include="CITV.cs" />
     <Compile Include="CrowsAimLock.cs" />
     <Compile Include="CrowsAutoTrack.cs" />
+    <Compile Include="CrowsAutoTrack.Motion.cs" />
     <Compile Include="CrowsAutoTrack.Lead.cs" />
     <Compile Include="CrowsAutoTrack.Sight.cs" />
     <Compile Include="CrowsPredictor.cs" />

@@ -33,8 +33,6 @@ namespace M1A1Abrams
             }
         }
 
-        private static bool worldWarning;
-
         [HarmonyPatch(typeof(FireControlSystem), "GetLeadWorldOffset")]
         private static class WorldLeadPatch
         {
@@ -42,17 +40,23 @@ namespace M1A1Abrams
             {
                 try
                 {
+                    // The game's GetLeadWorldOffset opens by returning Vector3.zero when the loaded round
+                    // asks for no lead compensation at all - gun-launched missiles, currently the 9M112
+                    // family. A Harmony postfix still runs after that early return, so without this guard
+                    // the tracker would overrule a decision the game deliberately made. Returning without
+                    // touching __result keeps the game's own zero.
+                    if (__instance.CurrentAmmoType == null || __instance.CurrentAmmoType.NoLeadCompensation)
+                    {
+                        return;
+                    }
+
                     UnityEngine.Vector3 offset;
                     if (driver != null && driver.TryGetWorldLead(__instance, out offset))
                         __result = offset;
                 }
                 catch (Exception)
                 {
-                    // A silent fallback would look like intermittent failure during a turn.
-                    if (!worldWarning)
-                    {
-                        worldWarning = true;
-                    }
+                    // A patch that throws must leave the game's original lead result intact.
                 }
             }
         }

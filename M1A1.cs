@@ -133,8 +133,12 @@ namespace M1A1Abrams
             citv_m1e1.Description = "Replaces commander's NVGs with variable-zoom thermals.";
             citv_m1a1 = cfg.CreateEntry<bool>("CITV (M1A1)", false);
 
+            // Retained so existing config files keep their shape, but it no longer has any effect:
+            // the damping it used to drive wrote BufferedCameraFollow.aimSensitivity3P, which is the
+            // commander's third-person turn rate, not a CITV-only value - softening it slowed the
+            // commander's traverse to a quarter of vanilla. The CITV no longer touches that field.
             citv_smooth = cfg.CreateEntry<bool>("Smooth CITV Panning (Global)", true);
-            citv_smooth.Comment = "Makes CITV feel more like a camera.";
+            citv_smooth.Comment = "No longer has any effect; retained for compatibility.";
 
             du_package_m1ip = cfg.CreateEntry<bool>("DU Armour (M1A1)", false);
             du_package_m1ip.Description = "DU inserts for the composite turret cheeks: increased KE protection. M1A1/M1IP exclusive. Increased weight.";
@@ -520,7 +524,7 @@ namespace M1A1Abrams
                 main_gun_info.Name = "120mm gun M256";
                 main_gun.Impulse = 68000;
                 Reflect.Set(main_gun, "CodexEntry", gun_m256);
-                main_gun.WeaponSound.SingleShotEventPaths[0] = "event:/Weapons/canon_125mm-2A46";
+                main_gun.WeaponSound.SingleShotEventPaths[0] = "event:/Weapons/canon_120mm-RH120";
 
                 GameObject dummy_tube = new GameObject("dummy tube");
                 dummy_tube.transform.parent = vic_go.transform.Find("IPM1_rig/HULL/TURRET/GUN");
@@ -580,7 +584,7 @@ namespace M1A1Abrams
                     ? new Vector3(1.4f, 1.1164f, -0.5873f)
                     : new Vector3(0.7855f, 1.2855f, 0.5182f);
 
-                if (CROWS.Mount(vic, vic.transform.Find("IPM1_rig/HULL/TURRET"), crows_pos, crows_alt_placement.Value, cfg_flir_gen))
+                if (CROWS.Mount(vic, vic.transform.Find("IPM1_rig/HULL/TURRET"), crows_pos, crows_alt_placement.Value, night_optic))
                 {
                     RaiseAbramsAntennas(vic);
 

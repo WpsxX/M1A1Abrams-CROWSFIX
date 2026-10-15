@@ -292,19 +292,6 @@ namespace M1A1Abrams
         private const float LEAD_VELOCITY_SMOOTHING = 2f;
 
         /// <summary>
-        /// Smoothing for the platform's own velocity (1/s). See ReportTargetRate - the lead itself uses
-        /// the unfiltered reading, and this filtered copy is what the readout and the moving flag go by.
-        /// </summary>
-        private const float PLATFORM_VELOCITY_SMOOTHING = 2f;
-
-        /// <summary>
-        /// Speed thresholds for the platform's moving state, in metres per second. The lower one turns
-        /// the flag off, the higher one turns it on: hysteresis.
-        /// </summary>
-        private const float MOVING_SPEED_OFF = 0.3f;
-        private const float MOVING_SPEED_ON = 0.6f;
-
-        /// <summary>
         /// The smallest measured rate worth calling motion, in degrees per second. Only used when the
         /// target reports no velocity of its own, where all that is left to measure is the aim's noise
         /// on a parked vehicle.
@@ -449,7 +436,11 @@ namespace M1A1Abrams
 
         private CrowsIntercept predictor_solution;
 
+        /// <summary>The borrowed weapon's rigidbody, read once in Attach; see the comment there.</summary>
+        private Rigidbody weapon_rb;
+
         private Vector3 averaged_velocity;
+        private Vector3 latest_target_velocity;
         private Vector3 fused_relative_velocity;
         private bool fused_relative_velocity_valid;
         private Vector3 last_los_unit;
@@ -462,7 +453,15 @@ namespace M1A1Abrams
 
         private void FixedUpdate()
         {
-            if (!armed || target == null || target.transform == null) return;
+            UpdatePlatformMotion();
+            // Render-time LOS fusion only describes the previous physics sample.
+            fused_relative_velocity_valid = false;
+            // Destroyed is its own field on Unit and is not implied by the transform: a wreck keeps a
+            // valid transform for the rest of the mission, and its body keeps drifting and settling.
+            // Without this test a wreck's velocity is sampled as a live target, and the filter is fed a
+            // track that is physical but not the target. Every other place in this class that consumes
+            // a target checks it (CheckBoreAlignment, UpdateMarkers); this one did not.
+            if (!armed || target == null || target.transform == null || target.Destroyed) return;
             // No derivatives or target filtering run on the render clock. FixedUpdate's
             // state can be one physics step old, but has a consistent physical timestamp.
             //
@@ -470,6 +469,11 @@ namespace M1A1Abrams
             // the transform for a target whose solver reports nothing, and reading it twice in one tick
             // would difference that transform against itself.
             Vector3 target_velocity = TargetWorldVelocity();
+            // A solver's stopped reading is authoritative. Do not let filter lag or
+            // suspension/transform jitter invent target motion after it stops.
+            if (target_velocity.sqrMagnitude < TARGET_VELOCITY_FLOOR * TARGET_VELOCITY_FLOOR)
+                target_velocity = Vector3.zero;
+            latest_target_velocity = target_velocity;
             bool accepted = motion.Sample(target.GetInstanceID(), Time.fixedTime,
                 MathVector(target_velocity), FlightTime(fcs == null ? 1f : fcs.CurrentRange));
             if (accepted)
@@ -479,8 +483,18 @@ namespace M1A1Abrams
                 lock_warmup_complete = velocity_valid && motion.Age >= LOCK_WARMUP_SECONDS;
                 // The filter first: the mixture is extrapolated from the state it produces, and would
                 // be a tick behind if it were fed after its own input.
-                SampleFilter(target_velocity);
-                SampleMotionMixture();
+                if (target_velocity_from_solver && target_velocity == Vector3.zero)
+                {
+                    averaged_velocity = Vector3.zero;
+                    bias.Reset();
+                    ukf.Reset();
+                    imm.Reset();
+                }
+                else
+                {
+                    SampleFilter(target_velocity);
+                    SampleMotionMixture();
+                }
             }
             else if (motion.Samples == 0)
             {
@@ -518,13 +532,38 @@ namespace M1A1Abrams
         /// </summary>
         private Vector3 LeadVelocity()
         {
-            return ukf.Healthy ? UnityVector(ukf.Velocity) : averaged_velocity;
+            if (target_velocity_from_solver && latest_target_velocity == Vector3.zero)
+                return Vector3.zero;
+            // UKF is hull-relative; the sampler is world-relative. Publish world
+            // velocity here so callers subtract inherited velocity exactly once.
+            return ukf.Healthy ? UnityVector(ukf.Velocity) + PlatformLeadVelocity() : averaged_velocity;
         }
 
         /// <summary>The target's acceleration for the lead, on the same terms as LeadVelocity.</summary>
         private Vector3 LeadAcceleration()
         {
-            return ukf.Healthy ? UnityVector(ukf.Acceleration) : UnityVector(motion.Acceleration);
+            if (target_velocity_from_solver && latest_target_velocity == Vector3.zero)
+                return Vector3.zero;
+            return ukf.Healthy ? UnityVector(ukf.Acceleration) + platform_acceleration : UnityVector(motion.Acceleration);
+        }
+
+        private Vector3 RelativeLeadVelocity(Vector3 inherited)
+        {
+            // A solver reading wins even before the render loop refreshes LOS fusion.
+            // In particular, a freshly stopped target must not revive last frame's lead.
+            return !target_velocity_from_solver && fused_relative_velocity_valid
+                ? fused_relative_velocity + PlatformLeadVelocity() - inherited
+                : LeadVelocity() - inherited;
+        }
+
+        private CrowsImm LeadMotionMixture()
+        {
+            // Mixture weights are learned from hull-relative motion. While the hull
+            // moves, use the single world-acceleration model: a round inherits launch
+            // velocity, not the hull's later braking or turning manoeuvre.
+            float floor = TARGET_VELOCITY_FLOOR * TARGET_VELOCITY_FLOOR;
+            return PlatformLeadVelocity().sqrMagnitude < floor
+                && platform_acceleration.sqrMagnitude < floor ? imm : null;
         }
 
         /// <summary>How much of that acceleration is worth carrying, on the models' 0..0.65 scale.</summary>
@@ -553,7 +592,8 @@ namespace M1A1Abrams
         private void SampleMotionMixture()
         {
             Vector3 relative;
-            if (motion.Samples < 2 || !platform_velocity_raw_valid || !TargetRelativePosition(out relative))
+            if (motion.Samples < 2 || !platform_velocity_raw_valid || LeadMotionMixture() == null
+                || !TargetRelativePosition(out relative))
             {
                 imm.Reset();
                 return;
@@ -569,6 +609,11 @@ namespace M1A1Abrams
         internal bool Fires(WeaponSystem other)
         {
             return other != null && weapon != null && other.GetInstanceID() == weapon.GetInstanceID();
+        }
+
+        private void OnRoundFired(AmmoType ammo, LiveRound round)
+        {
+            CrowsShotFeedback.Fired(weapon, round);
         }
 
         /// <summary>The range a round from this weapon is being fired at, for the fall of shot.</summary>
@@ -699,33 +744,6 @@ namespace M1A1Abrams
             }
         }
         private bool velocity_valid;
-
-        /// <summary>
-        /// The platform the rounds are fired from, and how fast it is going, low-passed; see
-        /// PLATFORM_VELOCITY_SMOOTHING. Read from the fire control's own chassis, which is the same
-        /// rigidbody the fire control adds to the solution and the round inherits its velocity from.
-        /// </summary>
-        private Vector3 platform_velocity;
-        private float platform_speed;
-        private bool platform_velocity_valid;
-
-        /// <summary>
-        /// The platform's velocity as the chassis reports it, with no filter on it, for the lead; see
-        /// PlatformLeadVelocity. The filtered copy above is what the readout and the moving flag use.
-        /// </summary>
-        private Vector3 platform_velocity_raw;
-        private bool platform_velocity_raw_valid;
-        private Vector3 platform_acceleration;
-        private Vector3 platform_velocity_previous;
-        private float platform_motion_time;
-        private bool platform_motion_sample_valid;
-
-        /// <summary>
-        /// Whether the player's own vehicle is moving, latched with hysteresis; see MOVING_SPEED_ON and
-        /// MOVING_SPEED_OFF. Only the readout acts on this - the lead itself is carried whether or not
-        /// the flag is set, and a station creeping below the threshold still gets its share of it.
-        /// </summary>
-        private bool platform_moving;
 
         /// <summary>
         /// The transform the fallback velocity measurement last saw, and the physics clock it saw it on.
@@ -947,6 +965,7 @@ namespace M1A1Abrams
 
         /// <summary>The computer's own inertial-compensation setting, for handing back with the lock.</summary>
         private bool original_inertial;
+        private bool lead_armed;
 
         // ------------------------------------------------------------------ ui
 
@@ -993,6 +1012,12 @@ namespace M1A1Abrams
             tracker.fcs = fcs;
             tracker.ours = ours;
             tracker.weapon = weapon;
+            if (weapon != null) weapon.Fired += tracker.OnRoundFired;
+            // WeaponSystem._rb is assigned exactly once, in Awake, and never again: the field is not
+            // readonly, but nothing in the game writes it after activation. Reading it through reflection
+            // twice per frame in the lead path is therefore pure cost; take it here, where the weapon
+            // handed to Attach is already the activated one.
+            tracker.weapon_rb = weapon == null ? null : Reflect.Get<Rigidbody>(weapon, "_rb");
 
             foreach (UsableOptic optic in sights)
             {
@@ -1031,7 +1056,6 @@ namespace M1A1Abrams
             lead_rate = Vector2.zero;
             lead_rate_valid = false;
             rate_reference_valid = false;
-            platform_velocity_valid = false;
             platform_motion_sample_valid = false;
             platform_acceleration = Vector3.zero;
             velocity_valid = false;
@@ -1141,6 +1165,7 @@ namespace M1A1Abrams
         /// </summary>
         private void DisarmLead()
         {
+            if (fcs == null || !lead_armed) return;
             try
             {
                 fcs.ZeroOutLead();
@@ -1154,6 +1179,10 @@ namespace M1A1Abrams
             catch (Exception)
             {
                 // releasing must never throw
+            }
+            finally
+            {
+                lead_armed = false;
             }
         }
 
@@ -1169,7 +1198,7 @@ namespace M1A1Abrams
         /// </summary>
         private void ArmLead()
         {
-            if (fcs == null)
+            if (fcs == null || lead_armed)
             {
                 return;
             }
@@ -1197,6 +1226,7 @@ namespace M1A1Abrams
                 // the same term, in the same frame, with the same sign - so nothing about the ballistics
                 // changes.
                 original_inertial = fcs.InertialCompensation;
+                lead_armed = true;
                 fcs.InertialCompensation = false;
                 fcs.ClampDegreeAdjust = false;   // this module clamps its own rate
 
@@ -1436,7 +1466,7 @@ namespace M1A1Abrams
 
             HoldAimLock();
 
-            KeepAlignmentClean();
+            RestoreAlignment();
 
             Vector3 tracked = TrackedPoint();
 
@@ -1957,11 +1987,11 @@ namespace M1A1Abrams
             if (flight <= 0f) return false;
             // WeaponSystem inherits its cached rigidbody's linear velocity, including Y.
             // Do not add GetPointVelocity: the game does not add rotational muzzle velocity.
-            Rigidbody body = weapon == null ? null : Reflect.Get<Rigidbody>(weapon, "_rb");
+            Rigidbody body = weapon_rb;
             Vector3 inherited = body == null ? Vector3.zero : body.velocity;
             // Solve the single relative state. The projectile inherits the station's current
-            // rigidbody velocity, so both target and platform acceleration belong in this same
-            // frame; adding an angular muzzle term here would double-count GHPC's launch code.
+            // rigidbody velocity. Only target acceleration carries into flight; adding an
+            // angular muzzle term here would double-count GHPC's launch code.
             // The line the intercept is solved along starts at the muzzle, not at the fire control's
             // reference point. The two are a metre or two apart: nothing against two kilometres, and a
             // tenth of the lead at three hundred metres, and it is the muzzle the round leaves from.
@@ -1971,19 +2001,27 @@ namespace M1A1Abrams
                 : fcs.ReferenceTransform.position + direction.normalized * fcs.CurrentRange;
             Vector3 line = wanted - muzzle;
 
-            if (line.sqrMagnitude < 1f) return true;
+            // A degenerate line is a valid state the module can solve, not a failure to solve it:
+            // the early returns above hand the fire control back to the game's own lead, and this
+            // solve is perfectly defined when the target sits on the muzzle. Returning true here
+            // keeps the world lead owning the fire control with a zero offset it is entitled to.
+            if (line.sqrMagnitude < 1f)
+            {
+                world_lead_active = true;
+                return true;
+            }
 
+            Vector3 relativeVelocity = RelativeLeadVelocity(inherited);
             predictor_solution = CrowsPredictor.SolveRelative(
                 MathVector(line),
-                MathVector(fused_relative_velocity_valid
-                    ? fused_relative_velocity + PlatformLeadVelocity() - inherited
-                    : LeadVelocity() - inherited),
-                MathVector(LeadAcceleration() - platform_acceleration),
-                LeadConfidence(), TableFlightTime, imm, LAUNCH_DELAY_SECONDS);
+                MathVector(relativeVelocity),
+                // The round inherits velocity at launch, not the hull's future acceleration.
+                MathVector(LeadAcceleration()),
+                LeadConfidence(), TableFlightTime, LeadMotionMixture(), LAUNCH_DELAY_SECONDS);
             if (!predictor_solution.Valid)
             {
                 // Invalid/unavailable table: retain the existing flat-time fallback, without acceleration.
-                offset = -Vector3.ProjectOnPlane(averaged_velocity - inherited, direction.normalized) * flight;
+                offset = -Vector3.ProjectOnPlane(relativeVelocity, direction.normalized) * flight;
             }
             else offset = -UnityVector(predictor_solution.TransverseDisplacement);
 
@@ -1992,7 +2030,8 @@ namespace M1A1Abrams
             // the whole solution is displaced by. Written in the same right/up basis the game writes
             // its own lead in, so the two cannot disagree about which way is right; a round that landed
             // right of the target puts a negative right term here, which moves the aim left.
-            if (fcs.ReferenceTransform != null && fcs.CurrentRange > 1f
+            if (latest_target_velocity.sqrMagnitude >= TARGET_VELOCITY_FLOOR * TARGET_VELOCITY_FLOOR
+                && fcs.ReferenceTransform != null && fcs.CurrentRange > 1f
                 && (Math.Abs(bias.Right(fcs.CurrentRange)) > 1e-4 || Math.Abs(bias.Up(fcs.CurrentRange)) > 1e-4))
             {
                 float radians = Mathf.Deg2Rad * fcs.CurrentRange;
@@ -2030,93 +2069,6 @@ namespace M1A1Abrams
         private bool Sweeping()
         {
             return aim_rate_valid && aim_rate > LOCK_MAX_SWEEP;
-        }
-
-        private void UpdatePlatformMotion()
-        {
-            Vector3 velocity = Vector3.zero;
-            bool known = false;
-
-            try
-            {
-                if (fcs != null && fcs.Chassis != null)
-                {
-                    velocity = fcs.Chassis.Velocity;
-                    known = true;
-                }
-            }
-            catch (Exception)
-            {
-                known = false;
-            }
-
-            if (!known && ours != null)
-            {
-                try
-                {
-                    velocity = ours?.Chassis?.Velocity ?? Vector3.zero;
-                    known = true;
-                }
-                catch (Exception)
-                {
-                    // a vehicle that will not report a velocity simply reads as stopped
-                }
-            }
-
-            if (!known)
-            {
-                velocity = Vector3.zero;
-            }
-
-            // The same reading kept unfiltered for the lead; see PlatformLeadVelocity.
-            platform_velocity_raw = velocity;
-            platform_velocity_raw_valid = known;
-
-            // Estimate the station's linear acceleration on the render-independent clock. This
-            // lets the relative predictor follow braking and a turn without creating another filter
-            // object or sampling the target from LateUpdate.
-            float motion_now = Time.time;
-            if (known && platform_motion_sample_valid)
-            {
-                float motion_dt = motion_now - platform_motion_time;
-                if (motion_dt > 1e-4f && motion_dt <= 0.25f)
-                {
-                    Vector3 measured_acceleration = (velocity - platform_velocity_previous) / motion_dt;
-                    platform_acceleration = Vector3.Lerp(platform_acceleration,
-                        Vector3.ClampMagnitude(measured_acceleration, 12f),
-                        1f - Mathf.Exp(-8f * motion_dt));
-                }
-            }
-            else if (!known)
-            {
-                platform_acceleration = Vector3.zero;
-            }
-            platform_velocity_previous = velocity;
-            platform_motion_time = motion_now;
-            platform_motion_sample_valid = known;
-
-            float dt = Time.deltaTime;
-
-            if (!platform_velocity_valid)
-            {
-                platform_velocity = velocity;
-                platform_velocity_valid = true;
-            }
-            else if (dt > 1e-5f)
-            {
-                platform_velocity = Vector3.Lerp(platform_velocity, velocity,
-                    1f - Mathf.Exp(-PLATFORM_VELOCITY_SMOOTHING * dt));
-            }
-
-            platform_speed = platform_velocity.magnitude;
-
-            bool was = platform_moving;
-
-            platform_moving = platform_moving
-                ? platform_speed > MOVING_SPEED_OFF
-                : platform_speed > MOVING_SPEED_ON;
-
-            // Platform motion state changed (diagnostic output removed)
         }
 
         /// <summary>
@@ -2535,6 +2487,16 @@ namespace M1A1Abrams
         /// </summary>
         private Vector3 FuseLineOfSight(Vector3 to, Vector3 relative)
         {
+            // Solver velocity already measures actual vehicle motion. The sight point
+            // can move as the tracker/aim offset settles even on a parked target; that
+            // is not additional evidence of target velocity.
+            if (target_velocity_from_solver || relative.sqrMagnitude < TARGET_VELOCITY_FLOOR * TARGET_VELOCITY_FLOOR)
+            {
+                fused_relative_velocity = relative;
+                fused_relative_velocity_valid = true;
+                los_rate_valid = false;
+                return relative;
+            }
             float length = to.magnitude;
             float now = Time.time;
             if (length < 1f || float.IsNaN(length) || float.IsInfinity(length))
@@ -2922,10 +2884,22 @@ namespace M1A1Abrams
 
                 float speed = sampled.magnitude;
 
-                // Reject a teleport rather than turning it into a plausible 60 m/s target.
-                sampled_velocity = speed > TARGET_VELOCITY_CEILING
-                    ? new Vector3(float.NaN, float.NaN, float.NaN)
-                    : sampled;
+                if (speed > TARGET_VELOCITY_CEILING)
+                {
+                    // Reject a teleport rather than turning it into a plausible 60 m/s target. This is a
+                    // declaration that the tick produced no measurement at all, not a measurement of
+                    // zero: return the last good velocity and make the next tick re-baseline, so the
+                    // displacement across the teleport is never divided by its interval. A teleport is a
+                    // very large velocity, and writing one here - as NaN, as the game's own value, or as
+                    // zero - would be believed either way.
+                    velocity_sample_position = position;
+                    velocity_sample_time = now;
+                    velocity_sample_valid = false;
+
+                    return sampled_velocity;
+                }
+
+                sampled_velocity = sampled;
             }
 
             return sampled_velocity.magnitude < TARGET_VELOCITY_FLOOR

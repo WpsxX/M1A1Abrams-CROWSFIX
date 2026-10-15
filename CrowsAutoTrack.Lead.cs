@@ -328,10 +328,15 @@ namespace M1A1Abrams
             smoothed_valid = false;
             velocity_valid = false;  // the last target's velocity is not this one's
             velocity_sample_valid = false;  // and neither is the transform the fallback last saw
+            // MeasureLead reports whatever the last SolveRelative stored here, so a solution left from
+            // the previous target would be reported as this one's, at this one's range.
+            predictor_solution = new CrowsIntercept();
 
             motion.Reset();
             imm.Reset();
             ukf.Reset();
+            bias.Reset();
+            latest_target_velocity = Vector3.zero;
             averaged_velocity = Vector3.zero;
             fused_relative_velocity = Vector3.zero;
             fused_relative_velocity_valid = false;
@@ -363,6 +368,8 @@ namespace M1A1Abrams
             motion.Reset();
             imm.Reset();
             ukf.Reset();
+            bias.Reset();
+            latest_target_velocity = Vector3.zero;
             averaged_velocity = Vector3.zero;
             fused_relative_velocity = Vector3.zero;
             fused_relative_velocity_valid = false;
@@ -386,6 +393,10 @@ namespace M1A1Abrams
             lock_warmup_complete = false;
             intended_lead_deg = 0f;
             applied_lead_deg = 0f;
+
+            // Same reason as in the lock path above: nothing may read the previous target's solution
+            // after the target it belonged to is gone.
+            predictor_solution = new CrowsIntercept();
 
             box_centre_local = Vector3.zero;
             box_half_local = Vector3.zero;
