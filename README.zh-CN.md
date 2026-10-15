@@ -22,6 +22,10 @@ CITV 与 M256 模型来自："WIP - Abrams M1A2 TUSK 2"（https://skfb.ly/VUwX�
 # M1A1 Abrams
 Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/MelonLoader/)。
 
+适配 20261014。
+
+修复 CROWS 的相关 bug。
+
 玩法/安装教程：https://www.youtube.com/watch?v=e_qNIyBb2SA
 
 如果通过 Steam 启动报错，请直接运行游戏主程序。
