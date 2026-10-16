@@ -23,7 +23,9 @@ A mod for Gunner, HEAT, PC! Requires [MelonLoader](https://github.com/LavaGang/M
 
 Compatible with 20261014.
 
-Fixes bugs related to CROWS.
+Fixes CITV.
+
+Fixes CROWS.
 
 Gameplay/Install guide: https://www.youtube.com/watch?v=e_qNIyBb2SA
 

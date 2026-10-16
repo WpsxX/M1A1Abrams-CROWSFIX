@@ -24,7 +24,9 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 
 适配 20261014。
 
-修复 CROWS 的相关 bug。
+修复 CITV。
+
+修复 CROWS。
 
 玩法/安装教程：https://www.youtube.com/watch?v=e_qNIyBb2SA
 

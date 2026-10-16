@@ -635,8 +635,9 @@ namespace M1A1Abrams
                 yield return null;
             }
 
-            // Donors (M60A3 cupola parts, T55A reticle tree, Bradley GPS canvas) and the
-            // game's .50 cal ammo entries all exist by the time the mission is playable.
+            // CROWS templates are loaded from the game's Addressables catalogue (without requiring
+            // donor vehicles in the mission), and the game's .50 cal ammo entries exist by the time
+            // the mission is playable.
             CROWS.Init();
 
             foreach (Vehicle vic in M1A1AbramsMod.vics)

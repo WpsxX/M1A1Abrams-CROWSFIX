@@ -42,6 +42,10 @@ namespace ModUtil
 
         internal static void Miss(string what)
         {
+            if (!string.IsNullOrEmpty(what) && reported.Add(what))
+            {
+                MelonLogger.Error("[M1A1] Reflection lookup failed: " + what);
+            }
         }
 
         private static string MemberName(Type type, string name)

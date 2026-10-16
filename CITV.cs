@@ -136,6 +136,7 @@ namespace M1A1Abrams
         public GameObject nfov;
         private Transform canvas;
         private Transform _3d_reticle;
+        private FieldInfo snapp;
         private FieldInfo max_distance; 
 
         private Vector3 CITVCurrentAimPoint
@@ -178,6 +179,7 @@ namespace M1A1Abrams
             nfov = monitor.transform.Find("nfov").gameObject;
             wfov = monitor.transform.Find("wfov").gameObject;
 
+            snapp = typeof(GHPC.Camera.BufferedCameraFollow).GetField("SNAPPINESS", BindingFlags.Static | BindingFlags.NonPublic);
             max_distance = typeof(GHPC.Camera.BufferedCameraFollow).GetField("MAX_AIM_DISTANCE", BindingFlags.Static | BindingFlags.NonPublic);
         }
 
@@ -191,6 +193,11 @@ namespace M1A1Abrams
                 nfov.gameObject.SetActive(cam_slot.CurrentFov < 10f);
                 wfov.gameObject.SetActive(cam_slot.CurrentFov >= 10f);
 
+                if (M1A1.citv_smooth.Value && snapp != null)
+                {
+                    snapp.SetValue(null, 0.20f);
+                }
+
                 if (InputUtil.MainPlayer.GetButton("Smooth Aim")) {
                     FireControlSystem fcs = PlayerInput.Instance.CurrentPlayerWeapon.Weapon.FCS;
                     fcs.SetAimWorldPosition(this.CITVCurrentAimPoint);
@@ -199,6 +206,11 @@ namespace M1A1Abrams
             else {
                 monitor.SetActive(false);
                 _3d_reticle.gameObject.SetActive(true);
+
+                if (M1A1.citv_smooth.Value && snapp != null)
+                {
+                    snapp.SetValue(null, 10f);
+                }
             }
         }
     } 
@@ -248,6 +260,7 @@ namespace M1A1Abrams
             if (commander_head == null || commander_head.GetComponent<CITV>() == null)
             {
                 model.SetActive(true);
+                ModUtil.Reflect.Set(camera, "aimSensitivity3P", 5f);
                 return;
             }
 
@@ -257,6 +270,8 @@ namespace M1A1Abrams
                 return;
             }
 
+            float sensitivity = 1.25f * (nods.CurrentFov / 60f);
+            ModUtil.Reflect.Set(camera, "aimSensitivity3P", sensitivity);
             model.SetActive(false);
         }
     }

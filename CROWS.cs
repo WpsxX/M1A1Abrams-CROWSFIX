@@ -24,8 +24,10 @@ namespace M1A1Abrams
     /// <summary>
     /// M153 CROWS II remote weapon station.
     ///
-    /// Borrows its .50 cal, gunsight, fire control computer, reticle tree and range-box canvas from an
-    /// M60A3 cupola, a T-55A night sight and an M2 Bradley, so all three must be in the mission. Every
+    /// Loads the .50 cal, gunsight, fire control computer, reticle tree and range-box canvas from
+    /// the game's Addressables prefabs. The templates are loaded as assets, so the mission does not
+    /// need to deploy M60A3, T-55A or M2 Bradley donor vehicles. A scene donor is retained only as a
+    /// compatibility fallback for older game builds whose catalogue does not expose the prefab. Every
     /// non-public member is reached through ModUtil.Reflect: the running game loads the official
     /// (non-publicized) Assembly-CSharp.
     /// </summary>
@@ -701,6 +703,7 @@ namespace M1A1Abrams
                 && m8_belt != null
                 && reticle_cached != null;
 
+            ReportFailures();
         }
 
         public static bool Mount(Vehicle vic, Transform origin, Vector3 position, bool alt_placement, UsableOptic main_gun_thermal)
@@ -2175,6 +2178,41 @@ namespace M1A1Abrams
 
         private static Vehicle FindDonor(string[] vehicle_names, string lookup_name)
         {
+            // Prefer the game's Addressables prefab. Try both the internal lookup key and every
+            // display-name alias because different game builds expose one or the other.
+            string[] candidates = new string[vehicle_names.Length + 1];
+            candidates[0] = lookup_name;
+            Array.Copy(vehicle_names, 0, candidates, 1, vehicle_names.Length);
+
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                string candidate = candidates[i];
+                if (string.IsNullOrEmpty(candidate))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Vehicle loaded = AssetUtil.LoadVanillaVehicle(candidate);
+                    if (loaded != null)
+                    {
+                        if (!loaded_donors.Contains(loaded))
+                        {
+                            loaded_donors.Add(loaded);
+                        }
+
+                        return loaded;
+                    }
+                }
+                catch (Exception error)
+                {
+                    Fail("Addressables template load failed for " + candidate + ": " + error.Message);
+                }
+            }
+
+            // Compatibility fallback for older builds whose unit catalogue does not expose the prefab.
+            // This path is only used when the asset catalogue cannot provide the template.
             foreach (Vehicle vehicle in Resources.FindObjectsOfTypeAll<Vehicle>())
             {
                 if (vehicle == null)
@@ -2182,35 +2220,18 @@ namespace M1A1Abrams
                     continue;
                 }
 
-                foreach (string name in vehicle_names)
+                for (int i = 0; i < vehicle_names.Length; i++)
                 {
-                    if (vehicle.name == name)
+                    if (vehicle.name == vehicle_names[i])
                     {
                         return vehicle;
                     }
                 }
             }
 
-            // Nothing on the field - pull the prefab in through the game's own unit lookup. That copy
-            // is a real, active Vehicle the game's unit lists pick up like any other, so it is
-            // remembered here and skipped by the sight.
-            try
-            {
-                Vehicle loaded = AssetUtil.LoadVanillaVehicle(lookup_name);
-
-                if (loaded != null && !loaded_donors.Contains(loaded))
-                {
-                    loaded_donors.Add(loaded);
-                }
-
-                return loaded;
-            }
-            catch (Exception)
-            {
-                return null;
-            }
+            Fail("no usable template for " + lookup_name + " (aliases: " + string.Join(", ", vehicle_names) + ")");
+            return null;
         }
-
         /// <summary>
         /// The vehicles pulled into the scene to borrow parts from, as opposed to ones the mission
         /// deployed. A donor is not a target: drawing a box on it brackets a vehicle that is not in the
@@ -2306,7 +2327,18 @@ namespace M1A1Abrams
         }
         private static void Fail(string reason)
         {
-            setup_failures.Add(reason);
+            if (!string.IsNullOrEmpty(reason))
+            {
+                setup_failures.Add(reason);
+            }
+        }
+
+        private static void ReportFailures()
+        {
+            foreach (string failure in setup_failures)
+            {
+                MelonLogger.Error("[M1A1] CROWS setup failed: " + failure);
+            }
         }
     }
 }
