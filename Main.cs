@@ -8,7 +8,7 @@ using GHPC.Vehicle;
 using ModUtil;
 using Presets;
 
-[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.3.3", "ATLAS")]
+[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.3.7", "ATLAS, WPSX")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace M1A1Abrams
@@ -35,7 +35,7 @@ namespace M1A1Abrams
             // Patching again can overwrite the M1 -> M1IP prefix state before its postfix runs.
 
             module_manager = new ModuleManager();
-            MelonPreferences_Category cfg = MelonPreferences.CreateCategory("M1A1Config");
+            MelonPreferences_Category cfg = MelonPreferences.CreateCategory("M1A1-CROWSFIX");
             M1A1.Config(cfg);
 
             module_manager.Add("AMMO_120MM", new Ammo_120mm());
