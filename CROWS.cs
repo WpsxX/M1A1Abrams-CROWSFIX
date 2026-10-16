@@ -147,13 +147,24 @@ namespace M1A1Abrams
                 // overloaded == reports a destroyed object as null, so that case is covered here too.
                 if (fcs == null) return;
 
-                PlayerInput input = PlayerInput.Instance;
-                WeaponSystemInfo active = input == null ? null : input.CurrentPlayerWeapon;
-                bool in_use = active != null
-                    && active.FCS != null
-                    && active.FCS.GetInstanceID() == fcs.GetInstanceID();
+                // Do not call SetStabsActive here. That used to force stabilization on every
+                // frame while CROWS was selected, so the player's stabilization toggle could
+                // never remain off. SetStabsActive is owned by the game's input/crew code; this
+                // component only mirrors its current state onto the cloned platforms.
+                AimablePlatform[] mounts = fcs.Mounts;
+                if (mounts == null)
+                {
+                    return;
+                }
 
-                fcs.SetStabsActive(in_use);
+                bool active = fcs.StabsActive;
+                for (int i = 0; i < mounts.Length; i++)
+                {
+                    if (mounts[i] != null)
+                    {
+                        mounts[i].StabilizerActive = active;
+                    }
+                }
             }
         }
 
@@ -593,10 +604,21 @@ namespace M1A1Abrams
                     return;
                 }
 
-                // The goal is re-asserted too: otherwise the platform's own update keeps pulling the
-                // mount towards the fire control's superelevated aim and tilts an azimuth-only mount.
-                mount_platform.SetAimVector(aim.normalized, true, true, false, false);
-                mount_platform.ForceAimVectorNow(aim);
+                // When stabilization is enabled, the station goal is world-space and the direct write
+                // keeps the sight and muzzle together at render time. When the player turns stabilization
+                // off, feed the same aim as a local/unstabilized goal and leave the platform's own
+                // transform update in charge; forcing a world rotation here would silently re-enable
+                // point stabilization every frame.
+                if (fcs.StabsActive)
+                {
+                    mount_platform.SetAimVector(aim.normalized, true, true, false, false);
+                    mount_platform.ForceAimVectorNow(aim);
+                }
+                else
+                {
+                    mount_platform.SetAimVector(aim.normalized, true, false, true, false);
+                }
+
                 model.rotation = mount_platform.Rotation;
 
                 // The cradle is deliberately NOT touched: `aim` is flattened onto the turret plane, so

@@ -134,6 +134,8 @@
     <Compile Include="CrowsAimLock.cs" />
     <Compile Include="CrowsAutoTrack.cs" />
     <Compile Include="CrowsAutoTrack.Motion.cs" />
+    <Compile Include="CrowsAutoTrack.Ballistics.cs" />
+    <Compile Include="CrowsBallisticIntercept.cs" />
     <Compile Include="CrowsAutoTrack.Lead.cs" />
     <Compile Include="CrowsAutoTrack.Sight.cs" />
     <Compile Include="CrowsPredictor.cs" />

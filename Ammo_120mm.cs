@@ -120,12 +120,28 @@ namespace M1A1Abrams
             Util.ShallowCopy(ammo_m829, Assets.ammo_m833);
             ammo_m829.Name = "M829 APFSDS-T";
             ammo_m829.Caliber = 120;
-            ammo_m829.RhaPenetration = 530f;
+            // The 1984 baseline round and the weakest dart in the file. Like every other round here its
+            // figure is set from a 2,000 m target rather than from a muzzle value, because this dart has
+            // the worst drag-to-mass ratio in the family - `Coeff` 0.20 against only 4.27 kg, the lightest
+            // rod in the file - so it keeps just 0.9038 of its muzzle velocity at that range and only
+            // 0.8168 of its penetration. The 490 mm the file asks for at 2,000 m therefore implies
+            //         490 / 0.9038^2 = 490 / 0.8168 = 600 mm at the muzzle
+            // which is what is written below. See the M829A4 block for the shared drag model.
+            ammo_m829.RhaPenetration = 600f;
             ammo_m829.MuzzleVelocity = 1670f;
             ammo_m829.Mass = 4.27f;
             ammo_m829.SectionalArea = 0.0009f;
             ammo_m829.SpallMultiplier = 1.15f;
             ammo_m829.Coeff = 0.20f;
+
+            // The original M829 is the round heavy ERA was proven against, and it lost: US trials on a
+            // Kontakt-5 T-72 found the armour "immune to the DU penetrators of M829". Nothing about the
+            // round resists a flyer plate - it is the 22 mm, 31:1 DU rod every later mark was built to
+            // replace, with no precursor tip to detonate the ERA early and no added diameter to survive
+            // the shear. 0.95 leaves almost the whole of Kontakt-5's 200-250 mm rating standing against it
+            // (190 mm, or 237 mm on the top of the manufacturer's band), which is what "immune" means
+            // here, and it is the only round in the family that gets essentially no relief.
+            ammo_m829.ArmorOptimizations = HeavyEraOptimizations(0.95f);
 
             Util.Coalesce(ref ammo_codex_m829);
             ammo_codex_m829.AmmoType = ammo_m829;
@@ -147,7 +163,13 @@ namespace M1A1Abrams
             Util.ShallowCopy(ammo_m829a1, Assets.ammo_m833);
             ammo_m829a1.Name = "M829A1 APFSDS-T";
             ammo_m829a1.Caliber = 120;
-            ammo_m829a1.RhaPenetration = 580;
+            // The one dart in the file that sits high inside its published band rather than under it: the
+            // band is 540-570 mm at 2,000 m (midpoint 555) and the file asks for 560, near its top. The
+            // A1's lighter rod keeps 0.9180 of its muzzle velocity and 0.8427 of its penetration, so
+            //         560 / 0.9180^2 = 560 / 0.8427 = 665 mm at the muzzle
+            // which is what is written below. It still trails the A2 and every later mark at every range;
+            // see the M829A4 block for the shared drag model.
+            ammo_m829a1.RhaPenetration = 665f;
             ammo_m829a1.SpallMultiplier = 1.15f;
             ammo_m829a1.MaxSpallRha = 22f;
             ammo_m829a1.MinSpallRha = 5f;
@@ -155,6 +177,15 @@ namespace M1A1Abrams
             ammo_m829a1.Mass = 4.6f;
             ammo_m829a1.SectionalArea = 0.00082f;
             ammo_m829a1.Coeff = 0.20f;
+
+            // The "Silver Bullet" is the dart the heavy ERA was built to stop: its 22 mm, 31:1 DU rod has
+            // no precursor tip, so a Kontakt-5 flyer plate shears it off-axis before it reaches the base
+            // armour. It nevertheless proved itself in 1991 against Iraqi T-72Ms, so it is not helpless
+            // against the armour - 0.85 leaves Kontakt-5 counting 170 mm and Relikt 212.5 mm, a real
+            // penalty but a lighter one than the original M829 pays, which is what the round's better
+            // penetrator and 1991 combat record are worth. It is still well short of the A2's brute-force
+            // approach and nowhere near the A3/A4's precursor tips.
+            ammo_m829a1.ArmorOptimizations = HeavyEraOptimizations(0.85f);
 
             Util.Coalesce(ref ammo_codex_m829a1);
             ammo_codex_m829a1.AmmoType = ammo_m829a1;
@@ -176,7 +207,10 @@ namespace M1A1Abrams
             Util.ShallowCopy(ammo_m829a2, Assets.ammo_m833);
             ammo_m829a2.Name = "M829A2 APFSDS-T";
             ammo_m829a2.Caliber = 120;
-            ammo_m829a2.RhaPenetration = 605f;
+            // 730 mm at the muzzle would hold the published 2,000 m band of 600-630 mm (615 midpoint)
+            // exactly; the file sits 30 mm under that (700), for 581 mm at 2,000 m. The A2 keeps its
+            // higher muzzle velocity, so it still out-penetrates the A1 at every range.
+            ammo_m829a2.RhaPenetration = 700f;
             ammo_m829a2.SpallMultiplier = 1.15f;
             ammo_m829a2.MaxSpallRha = 22f;
             ammo_m829a2.MinSpallRha = 5f;
@@ -184,6 +218,14 @@ namespace M1A1Abrams
             ammo_m829a2.Mass = 4.6f;
             ammo_m829a2.SectionalArea = 0.00082f;
             ammo_m829a2.Coeff = 0.20f;
+
+            // The interim answer to Kontakt-5, and the first round in the family designed against it: the
+            // 1994 A2 exists because trials showed K-5 stopped the earlier DU darts. It does not carry a
+            // precursor tip - the stated approach was to "brute force" through the ERA - so its relief
+            // comes from a stronger DU penetrator, a composite sabot and ~100 m/s more muzzle velocity,
+            // all of which cut the time the rod spends inside the flyer plate's path. 0.80 leaves
+            // Kontakt-5 at 160 mm and Relikt at 200 mm: better than the A1, still far short of the A3.
+            ammo_m829a2.ArmorOptimizations = HeavyEraOptimizations(0.80f);
 
             Util.Coalesce(ref ammo_codex_m829a2);
             ammo_codex_m829a2.AmmoType = ammo_m829a2;
@@ -205,7 +247,11 @@ namespace M1A1Abrams
             Util.ShallowCopy(ammo_m829a3, Assets.ammo_m833);
             ammo_m829a3.Name = "M829A3 APFSDS-T";
             ammo_m829a3.Caliber = 120;
-            ammo_m829a3.RhaPenetration = 690f;
+            // 816 mm at the muzzle would hold the published 2,000 m band of 670-700 mm (685 midpoint)
+            // exactly; the file sits 31 mm under that (785), for 659 mm at 2,000 m. The heavier,
+            // better-shaped rod still loses less speed than the A1/A2, which is why it overtakes the faster
+            // A2 at long range - 1,425 m/s retained against 1,538 at 2 km.
+            ammo_m829a3.RhaPenetration = 785f;
             ammo_m829a3.SpallMultiplier = 1.2f;
             ammo_m829a3.MaxSpallRha = 22f;
             ammo_m829a3.MinSpallRha = 7f;
@@ -214,6 +260,11 @@ namespace M1A1Abrams
             ammo_m829a3.SectionalArea = 0.00086f;
             ammo_m829a3.Coeff = 0.22f;
 
+            // The "wall breaker": a ~100 mm sacrificial precursor tip that detonates the ERA and then
+            // shears off, plus a 25 mm rod whose bending stiffness is ~46% up on the A1/A2's 22 mm, so the
+            // main DU body crosses the disrupted ERA box still straight. What is left of a heavy ERA
+            // section against it is the flyer plates themselves - 0.25 puts Kontakt-5 at 50 mm and Relikt
+            // at 62.5 mm, the "30-50 mm" the round is credited with.
             ammo_m829a3.ArmorOptimizations = HeavyEraOptimizations(0.25f);
 
             Util.Coalesce(ref ammo_codex_m829a3);
@@ -248,26 +299,28 @@ namespace M1A1Abrams
             //     are what decide how much of the muzzle velocity the dart keeps on the way out.
             //   * `MuzzleVelocity` 1,565 m/s, the middle of the published 1,550-1,580 for the 120 mm L/44
             //     M256 this vehicle carries.
-            //   * Penetration is calibrated against this mod's own M829A3, not against an absolute figure.
-            //     The A3 in this file carries `RhaPenetration = 690`, and the published bands for the two
-            //     rounds are 750-800 mm RHAe for the A3 and 800-850 for the A4, so the ratio to carry
-            //     across is the ratio of their midpoints:
-            //         690 * (825 / 775) = 734.5  ->  735
-            //     That keeps the A4 on the same scale as the A3 that is already in the game instead of
-            //     inventing a second one - writing the A4's *absolute* 800-850 here (960, as it was first
-            //     done) makes it 39% better than the A3, which is three times the improvement the two real
-            //     rounds differ by.
+            //   * Penetration is calibrated so the round reproduces its published 2,000 m band under this
+            //     file's drag model, not so it reproduces an arbitrary muzzle figure. The published band is
+            //     700-730 mm RHAe at 2,000 m, midpoint 715, and the rod keeps 0.9282 of its muzzle velocity
+            //     at that range, so the muzzle value it implies is
+            //         715 / 0.9282^2 = 715 / 0.8616 = 830
+            //     The same rule governs every dart in this file, each against its own published band and
+            //     its own drag figure: M829 490 / 0.9038^2 = 600, M829A1 560 / 0.9180^2 = 665,
+            //     M829A2 615 / 0.9180^2 = 730, M829A3 685 / 0.9164^2 = 816. The A4 and the A1 are written
+            //     at the figure their own band implies; the A2 and the A3 are held roughly 25-30 mm below
+            //     theirs, so the newest round stays a visible step ahead instead of the family flattening
+            //     into one value. That is why the A4 lands at 830 against the A3's 785: +5.7%.
             //
             //     GHPC takes no penetration table: it takes this single RHA figure, treats it as the muzzle
-            //     value, and scales it by the square of the speed ratio (`LiveRound.CurrentPenRating`), so
-            //     the 2,000 m figure falls out of the drag model used by `OldLiveRound.accelerate` /
-            //     `BallisticEvaluatorRK4`:
+            //     value, and scales it by the square of the speed ratio (`LiveRound.CurrentPenRating`:
+            //     `RhaPenetration * CurrentSpeed^2 / MaxSpeed^2`), so the 2,000 m figure falls out of the
+            //     drag model used by `OldLiveRound.accelerate` / `BallisticEvaluatorRK4`:
             //         k         = Coeff * SectionalArea * air density / Mass
             //                   = 0.20 * 0.0009 * 1.2 / 5.8                = 3.724e-5 per metre
             //         v(2000 m) = v0 * exp(-k * 2000)                        = 0.9282 * v0
-            //         pen(2000) = RhaPenetration * 0.9282^2 = 735 * 0.8616    = 633 mm RHAe
-            //     against the A3's 579 mm at the same range (690 * 0.9164^2), i.e. +6.5% at the muzzle and
-            //     +9.4% at 2,000 m: the dart holds its speed slightly better because that is what a longer,
+            //         pen(2000) = RhaPenetration * 0.9282^2 = 830 * 0.8616    = 715 mm RHAe
+            //     against the A3's 659 mm at the same range (785 * 0.9164^2), i.e. +5.7% at the muzzle and
+            //     +8.5% at 2,000 m: the dart holds its speed slightly better because that is what a longer,
             //     heavier rod with a better tip does. (Air density is 1.2 from `WorldScript.LocalAirDensity`
             //     or 1.25 from `WorldEnvironmentManager`; the other one moves these by under 1%.)
             //
@@ -282,11 +335,11 @@ namespace M1A1Abrams
             Util.ShallowCopy(ammo_m829a4, Assets.ammo_m833);
             ammo_m829a4.Name = "M829A4 APFSDS-T";
             ammo_m829a4.Caliber = 120;
-            ammo_m829a4.RhaPenetration = 735f;
+            ammo_m829a4.RhaPenetration = 830f;
             ammo_m829a4.SpallMultiplier = 1.25f;
             ammo_m829a4.MaxSpallRha = 24f;
             ammo_m829a4.MinSpallRha = 8f;
-            ammo_m829a4.MuzzleVelocity = 1565f;
+            ammo_m829a4.MuzzleVelocity = 1650f;
             ammo_m829a4.Mass = 5.8f;
             ammo_m829a4.SectionalArea = 0.0009f;
             ammo_m829a4.Coeff = 0.20f;
@@ -297,20 +350,29 @@ namespace M1A1Abrams
             //
             //     Kontakt5.schema.ke_rha = 200 mm      Relikt.schema.ke_rha = 250 mm
             //
-            // and off what `LiveRound.penCheck` does with them: passing a layer costs the dart speed
-            // (`CurrentSpeed = sqrt(v^2 * (1 - layer / penetration))`), and since penetration goes as the
-            // square of the speed, a layer costs exactly `layer` millimetres of penetration. A layer's
-            // thickness is its nominal RHA *times this ratio*, so the ratio is a millimetre figure:
+            // and off what `LiveRound` does with them: the round compares `CurrentPenRating` against the
+            // section's line-of-sight thickness, and a named armour's thickness is multiplied by this ratio
+            // first (`LiveRound.penCheck`: `num10 = GetLosThickness(...) * armorOptimization.RhaRatio`,
+            // then `num10 > CurrentPenRating` means no penetration). `GetNormalThickness` returns
+            // `PrimarySabotRha` for a KE round, which is exactly the field `PactEra` fills with `ke_rha`,
+            // so the ratio is a straight multiplier on the ERA's rated effectiveness. The whole family:
             //
-            //     A3, 0.25    Kontakt-5 200 * 0.25 =  50 mm      Relikt 250 * 0.25 = 62.5 mm
-            //     A4, 0.125   Kontakt-5 200 * 0.125 = 25 mm      Relikt 250 * 0.125 = 31.3 mm
+            //     M829     0.95    Kontakt-5 190.0 mm    Relikt 237.5 mm    no precursor tip
+            //     M829A1   0.85    Kontakt-5 170.0 mm    Relikt 212.5 mm    no precursor tip
+            //     M829A2   0.80    Kontakt-5 160.0 mm    Relikt 200.0 mm    no precursor tip, brute force
+            //     M829A3   0.25    Kontakt-5  50.0 mm    Relikt  62.5 mm    100 mm steel precursor tip
+            //     M829A4   0.125   Kontakt-5  25.0 mm    Relikt  31.3 mm    precursor tip, further optimised
             //
-            // The A3's 0.25 is what makes its published claim true - 750-800 mm RHAe, and "still 700 mm+
-            // against the base armour after defeating heavy ERA" is 775 - 50 = 725, or 750 - 50 = 700 at the
-            // bottom of the band. So the ratio is already calibrated by that sentence, and the A4 has to be
-            // read on the same scale: half the cost is 735 - 25 = 710 mm left after Kontakt-5, against 633 -
-            // 25 = 608 mm at 2,000 m. That is what "significantly enhanced against heavy ERA" is worth here;
-            // it is deliberately *not* expressed as extra `RhaPenetration`, which would double-count it.
+            // The family splits where the hardware does. The three rounds with no precursor tip all pay most
+            // of the ERA's rated penalty, descending as their penetrators improve; the two with a tip pay
+            // little, because the tip detonates the ERA early so the flyer plates only partially reach the
+            // main rod - in the A3's case a 100 mm steel tip ahead of a 630 mm DU rod whose diameter was
+            // raised from 22 to 25 mm, a 67% strength gain specifically for resisting ERA bursting plates.
+            // The A3/A4 figures are also what make their published claims true: 785 mm at the muzzle leaves
+            // 785 - 50 = 735 mm against Kontakt-5, and 659 mm at 2,000 m leaves 609 mm; the A4's half-cost is
+            // 830 - 25 = 805 mm, against 715 - 25 = 690 mm at 2,000 m. That is what "significantly enhanced
+            // against heavy ERA" is worth here; it is deliberately *not* expressed as extra
+            // `RhaPenetration`, which would double-count it.
             ammo_m829a4.ArmorOptimizations = HeavyEraOptimizations(0.125f);
 
             Util.Coalesce(ref ammo_codex_m829a4);
@@ -492,10 +554,12 @@ namespace M1A1Abrams
         /// <summary>
         /// The ERA codices a dart was designed against, with the fraction of each section's nominal RHA
         /// that still counts against it: the game multiplies an ERA section's line-of-sight thickness by
-        /// this ratio when the ammo's table names that armour (<c>LiveRound</c>,
-        /// <c>AmmoType.ArmorOptimizations</c>). The A3 carries 0.25 against Kontakt-5 and Relikt; a round
-        /// built specifically to defeat heavy ERA carries less, and that is the whole difference in the
-        /// penetration model between the two.
+        /// this ratio when the ammo's table names that armour (<c>LiveRound.penCheck</c>,
+        /// <c>AmmoType.ArmorOptimizations</c>). The whole M829 family is on this table, and it splits at
+        /// the point the hardware does - tip versus no tip - rather than descending smoothly: M829 0.95,
+        /// M829A1 0.85 and M829A2 0.80 carry no precursor tip and pay most of the penalty; M829A3 0.25 and
+        /// M829A4 0.125 do carry one and pay little. Against Kontakt-5's 200 mm and Relikt's 250 mm that is
+        /// 190/238, 170/213, 160/200, 50/63 and 25/31 mm respectively.
         ///
         /// The codices themselves live in another mod (Pact Increased Lethality), which is optional, so
         /// they are found through reflection and the whole table is dropped when it is not loaded - the

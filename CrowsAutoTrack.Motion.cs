@@ -27,29 +27,36 @@ namespace M1A1Abrams
             Vector3 velocity = Vector3.zero;
             bool known = false;
 
-            try
-            {
-                if (fcs != null && fcs.Chassis != null)
-                {
-                    velocity = fcs.Chassis.Velocity;
-                    known = true;
-                }
-            }
-            catch (Exception)
-            {
-                known = false;
-            }
-
-            if (!known && ours != null)
+            // The cloned fire-control object can retain the donor's chassis reference (or a
+            // chassis that has not been wired yet). The vehicle passed to Attach is the spawned
+            // vehicle this station actually rides on, so its chassis is authoritative for both
+            // relative target motion and the projectile's inherited platform velocity.
+            if (ours != null)
             {
                 try
                 {
                     velocity = ours?.Chassis?.Velocity ?? Vector3.zero;
-                    known = true;
+                    known = ours.Chassis != null;
                 }
                 catch (Exception)
                 {
-                    // A vehicle that will not report a velocity simply reads as stopped.
+                    known = false;
+                }
+            }
+
+            if (!known)
+            {
+                try
+                {
+                    if (fcs != null && fcs.Chassis != null)
+                    {
+                        velocity = fcs.Chassis.Velocity;
+                        known = true;
+                    }
+                }
+                catch (Exception)
+                {
+                    known = false;
                 }
             }
 

@@ -20,13 +20,9 @@ namespace M1A1Abrams
     /// Automatic target tracking ("ATT") for the M153 CROWS II, driven through the game's own fire
     /// control system.
     ///
-    /// GHPC already does the hard part: the sight and the weapon axis are decoupled, the ballistic
-    /// computer holds the flight-time table, and the lead is derived from the angular rate the aim is
-    /// rotated at. So this module only pins the aim onto a locked target and feeds that rotation in
-    /// through <c>AdjustAimByDegrees</c> - the only entry point that writes <c>_lastAngleAdjust</c>,
-    /// and therefore the only one that produces any lead at all (<c>SetAimWorldPosition</c> would
-    /// leave the lead at zero). Flight time, superelevation, the lead split and the traverse-rate
-    /// buffer are all the game's.
+    /// The sight follows the locked target while a world-space intercept sets the weapon direction.
+    /// The shot model matches GHPC's inherited launch velocity, drag and gravity; the fire control
+    /// still drives the mount, with its table/rate solution retained as a fallback.
     ///
     /// One of these per CROWS station, on the fire control's object. The sight overlays
     /// (<see cref="CrowsSightUi"/>) exist twice, once per optic, and only read this class.
@@ -328,9 +324,11 @@ namespace M1A1Abrams
             smoothed_valid = false;
             velocity_valid = false;  // the last target's velocity is not this one's
             velocity_sample_valid = false;  // and neither is the transform the fallback last saw
-            // MeasureLead reports whatever the last SolveRelative stored here, so a solution left from
+            // MeasureLead reports the last intercept stored here, so a solution left from
             // the previous target would be reported as this one's, at this one's range.
             predictor_solution = new CrowsIntercept();
+            ballistic_solution = new CrowsBallisticSolution();
+            ballistic_solution_frame = -1;
 
             motion.Reset();
             imm.Reset();
@@ -397,6 +395,8 @@ namespace M1A1Abrams
             // Same reason as in the lock path above: nothing may read the previous target's solution
             // after the target it belonged to is gone.
             predictor_solution = new CrowsIntercept();
+            ballistic_solution = new CrowsBallisticSolution();
+            ballistic_solution_frame = -1;
 
             box_centre_local = Vector3.zero;
             box_half_local = Vector3.zero;

@@ -20,13 +20,9 @@ namespace M1A1Abrams
     /// Automatic target tracking ("ATT") for the M153 CROWS II, driven through the game's own fire
     /// control system.
     ///
-    /// GHPC already does the hard part: the sight and the weapon axis are decoupled, the ballistic
-    /// computer holds the flight-time table, and the lead is derived from the angular rate the aim is
-    /// rotated at. So this module only pins the aim onto a locked target and feeds that rotation in
-    /// through <c>AdjustAimByDegrees</c> - the only entry point that writes <c>_lastAngleAdjust</c>,
-    /// and therefore the only one that produces any lead at all (<c>SetAimWorldPosition</c> would
-    /// leave the lead at zero). Flight time, superelevation, the lead split and the traverse-rate
-    /// buffer are all the game's.
+    /// The sight follows the locked target while a world-space intercept sets the weapon direction.
+    /// The shot model matches GHPC's inherited launch velocity, drag and gravity; the fire control
+    /// still drives the mount, with its table/rate solution retained as a fallback.
     ///
     /// One of these per CROWS station, on the fire control's object. The sight overlays
     /// (<see cref="CrowsSightUi"/>) exist twice, once per optic, and only read this class.
@@ -274,7 +270,7 @@ namespace M1A1Abrams
         private const float LEAD_RATE_SLEW = 4f;
 
         /// <summary>
-        /// The lag between the solution being asked for and the round leaving, in seconds, split into the
+        /// Legacy table fallback only: the lag between asking for a solution and firing, split into the
         /// two parts that pull in different directions. The aim latency is the station still settling onto
         /// the lead it was given; the fire latency is the trigger and the breech. Both are flown as extra
         /// time of flight - during them the target and the platform keep moving - and keeping them apart
@@ -436,7 +432,7 @@ namespace M1A1Abrams
 
         private CrowsIntercept predictor_solution;
 
-        /// <summary>The borrowed weapon's rigidbody, read once in Attach; see the comment there.</summary>
+        /// <summary>The launch rigidbody, read after weapon Awake and retried if not yet available.</summary>
         private Rigidbody weapon_rb;
 
         private Vector3 averaged_velocity;
@@ -732,7 +728,7 @@ namespace M1A1Abrams
 
             try
             {
-                var chassis = fcs.Chassis;
+                var chassis = ours != null && ours.Chassis != null ? ours.Chassis : fcs.Chassis;
                 if (chassis == null || chassis.Rigidbody == null) return false;
                 relative = target.transform.position - chassis.Rigidbody.position;
                 return true;
@@ -1013,11 +1009,8 @@ namespace M1A1Abrams
             tracker.ours = ours;
             tracker.weapon = weapon;
             if (weapon != null) weapon.Fired += tracker.OnRoundFired;
-            // WeaponSystem._rb is assigned exactly once, in Awake, and never again: the field is not
-            // readonly, but nothing in the game writes it after activation. Reading it through reflection
-            // twice per frame in the lead path is therefore pure cost; take it here, where the weapon
-            // handed to Attach is already the activated one.
-            tracker.weapon_rb = weapon == null ? null : Reflect.Get<Rigidbody>(weapon, "_rb");
+            // The weapon's Awake is deferred while the CROWS model is inactive. Cache the
+            // launch rigidbody in Activate, after EnsureActive has bound it to this vehicle.
 
             foreach (UsableOptic optic in sights)
             {
@@ -1050,6 +1043,7 @@ namespace M1A1Abrams
             // Avoid duplicate camera subscriptions and resetting an existing lock.
             if (armed || fcs == null) return;
             armed = true;
+            weapon_rb = weapon == null ? null : Reflect.Get<Rigidbody>(weapon, "_rb");
 
             // Reset all tracking state to ensure clean initialization
             // This is critical in multi-faction scenarios where CROWS may be reused
@@ -1952,9 +1946,9 @@ namespace M1A1Abrams
         }
 
         /// <summary>
-        /// Returns the negative transverse relative displacement consumed by the FCS subtraction.
-        /// The existing table refines time only; drop stays at CurrentRange. Radial inherited velocity
-        /// changes the queried distance, not the ballistic model's launch speed or drag integration.
+        /// Returns the correction consumed by the FCS subtraction. The ballistic intercept solves
+        /// launch velocity, drag, gravity and target motion together; the table-based relative solve
+        /// remains a fallback when an exact solution cannot be verified.
         /// </summary>
         // Compute in world space when the FCS consumes the solution. Cached local rates
         // cannot represent a stable correction while the hull/reference frame rotates.
@@ -1987,12 +1981,8 @@ namespace M1A1Abrams
             if (flight <= 0f) return false;
             // WeaponSystem inherits its cached rigidbody's linear velocity, including Y.
             // Do not add GetPointVelocity: the game does not add rotational muzzle velocity.
-            Rigidbody body = weapon_rb;
-            Vector3 inherited = body == null ? Vector3.zero : body.velocity;
-            // Solve the single relative state. The projectile inherits the station's current
-            // rigidbody velocity. Only target acceleration carries into flight; adding an
-            // angular muzzle term here would double-count GHPC's launch code.
-            // The line the intercept is solved along starts at the muzzle, not at the fire control's
+            Vector3 inherited = InheritedLaunchVelocity();
+            // The fallback line starts at the muzzle, not at the fire control's
             // reference point. The two are a metre or two apart: nothing against two kilometres, and a
             // tenth of the lead at three hundred metres, and it is the muzzle the round leaves from.
             Vector3 muzzle = MuzzlePosition();
@@ -2012,18 +2002,21 @@ namespace M1A1Abrams
             }
 
             Vector3 relativeVelocity = RelativeLeadVelocity(inherited);
-            predictor_solution = CrowsPredictor.SolveRelative(
-                MathVector(line),
-                MathVector(relativeVelocity),
-                // The round inherits velocity at launch, not the hull's future acceleration.
-                MathVector(LeadAcceleration()),
-                LeadConfidence(), TableFlightTime, LeadMotionMixture(), LAUNCH_DELAY_SECONDS);
-            if (!predictor_solution.Valid)
+            if (!TryGetBallisticLead(inherited, flight, out offset))
             {
-                // Invalid/unavailable table: retain the existing flat-time fallback, without acceleration.
-                offset = -Vector3.ProjectOnPlane(relativeVelocity, direction.normalized) * flight;
+                predictor_solution = CrowsPredictor.SolveRelative(
+                    MathVector(line),
+                    MathVector(relativeVelocity),
+                    // The round inherits velocity at launch, not the hull's future acceleration.
+                    MathVector(LeadAcceleration()),
+                    LeadConfidence(), TableFlightTime, LeadMotionMixture(), LAUNCH_DELAY_SECONDS);
+                if (!predictor_solution.Valid)
+                {
+                    // Invalid/unavailable table: retain the flat-time fallback without acceleration.
+                    offset = -Vector3.ProjectOnPlane(relativeVelocity, direction.normalized) * flight;
+                }
+                else offset = -UnityVector(predictor_solution.TransverseDisplacement);
             }
-            else offset = -UnityVector(predictor_solution.TransverseDisplacement);
 
             // The multi-shot correction, added after the lead because it is not the target's motion:
             // what the last few rounds landed away from where they were aimed, as an angular hold-off
@@ -2670,7 +2663,7 @@ namespace M1A1Abrams
             if (predictor_solution.Valid)
             {
                 // Prefer the answer the fire control was actually handed - solved this frame or the
-                // last, but with the same model, the same horizon and the same launch delay as the
+                // last, but with the same model and horizon as the
                 // offset the gun is carrying. The constant-velocity estimate below is the fallback for
                 // when no solution was produced at all, and differs from the applied lead exactly
                 // where the mixture does.

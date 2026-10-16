@@ -8,7 +8,7 @@ using GHPC.Vehicle;
 using ModUtil;
 using Presets;
 
-[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.3.7", "ATLAS, WPSX")]
+[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.3.8", "ATLAS, WPSX")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace M1A1Abrams
