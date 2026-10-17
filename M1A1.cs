@@ -370,6 +370,9 @@ namespace M1A1Abrams
             // A converted M1 uses the M1IP prefab, but it remains an M1E1 for configuration.
             // UnitSpawner may put its spawn marker on the unit root instead of the Vehicle object.
             bool is_m1ip = vic.UniqueName == "M1IP Abrams" && FindSpawnMarker<PreviouslyM1>(vic) == null;
+            // A transmogged M1 is renamed to "M1IP" by M1toM1IP, so it matches neither "M1" (M1A0 mesh)
+            // nor "M1IP Abrams" (vanilla M1IP). Route model-dependent work on this instead of UniqueName.
+            bool uses_m1ip_model = vic.UniqueName != "M1";
             var playerUnit = PlayerInput.Instance?.CurrentPlayerUnit;
             bool player_controlled = playerUnit != null && vic.gameObject == playerUnit.gameObject;
 
@@ -445,20 +448,35 @@ namespace M1A1Abrams
                 digital_enhance.Add(1f, 0.02f, 0.29f);
             }
 
-            if (cfg_du_package && vic.UniqueName == "M1IP Abrams")
+            if (cfg_du_package && uses_m1ip_model)
             {
-                vic_go.GetComponent<Rigidbody>().mass = 62781.3776f;
-                Reflect.Set(vic, "_friendlyName", vic.FriendlyName + (cfg_du_gen > 1 ? "HC" : "HA"));
+                LateFollowTarget turret_follow = vic.transform.Find("IPM1_rig/HULL/TURRET")?.GetComponent<LateFollowTarget>();
+                Transform cheeks = null;
 
-                GameObject turret_cheeks = vic.transform.Find("IPM1_rig/HULL/TURRET").GetComponent<LateFollowTarget>()
-                    .LateFollowers[0].transform.Find("Turret_Armor/cheeks composite arrays").gameObject;
+                if (turret_follow != null && turret_follow.LateFollowers != null && turret_follow.LateFollowers.Count > 0)
+                {
+                    cheeks = turret_follow.LateFollowers[0]?.transform.Find("Turret_Armor/cheeks composite arrays");
+                }
 
-                VariableArmor var_armour = turret_cheeks.GetComponent<VariableArmor>();
-                Reflect.Set(var_armour, "_armorType", DUArmour.du_armor_codexes[cfg_du_gen - 1]);
+                if (cheeks != null)
+                {
+                    vic_go.GetComponent<Rigidbody>().mass = 62781.3776f;
+                    Reflect.Set(vic, "_friendlyName", vic.FriendlyName + (cfg_du_gen > 1 ? "HC" : "HA"));
 
-                AarVisual cheek_visual = turret_cheeks.GetComponent<AarVisual>();
+                    GameObject turret_cheeks = cheeks.gameObject;
 
-                cheek_visual.AarMaterial = DUArmour.du_aar_mats[cfg_du_gen - 1];
+                    VariableArmor var_armour = turret_cheeks.GetComponent<VariableArmor>();
+                    if (var_armour != null)
+                    {
+                        Reflect.Set(var_armour, "_armorType", DUArmour.du_armor_codexes[cfg_du_gen - 1]);
+                    }
+
+                    AarVisual cheek_visual = turret_cheeks.GetComponent<AarVisual>();
+                    if (cheek_visual != null)
+                    {
+                        cheek_visual.AarMaterial = DUArmour.du_aar_mats[cfg_du_gen - 1];
+                    }
+                }
             }
 
             if (cfg_rotate_azimuth)
@@ -499,13 +517,13 @@ namespace M1A1Abrams
                 Reflect.Set(spotter, "_nightSightDistancePassive", 4500f);
                 Reflect.Set(vic, "_friendlyName", vic.FriendlyName + "+");
 
-                if (vic.UniqueName == "M1IP Abrams")
+                if (uses_m1ip_model)
                 {
-                    vic_go.transform.Find("IPM1_rig/HULL/TURRET/sparewheel_roof").gameObject.SetActive(false);
+                    vic_go.transform.Find("IPM1_rig/HULL/TURRET/sparewheel_roof")?.gameObject.SetActive(false);
                 } 
                 else
                 { 
-                    vic_go.transform.Find("IPM1_rig/HULL/TURRET/M1A0 sparewheel_roof").gameObject.SetActive(false);
+                    vic_go.transform.Find("IPM1_rig/HULL/TURRET/M1A0 sparewheel_roof")?.gameObject.SetActive(false);
                 }
             }
 
@@ -565,9 +583,9 @@ namespace M1A1Abrams
 
                 vic_go.transform.Find("IPM1_rig/HULL/TURRET/GUN/turret_gun").gameObject.SetActive(false);
 
-                if (vic.UniqueName == "M1IP Abrams")
+                if (uses_m1ip_model)
                 {
-                    vic_go.transform.Find("IPM1_rig/HULL/TURRET/M1 camo net/turret_gun").gameObject.SetActive(false);
+                    vic_go.transform.Find("IPM1_rig/HULL/TURRET/M1 camo net/turret_gun")?.gameObject.SetActive(false);
                 }
 
                 GAS.Create(sabotClipCodex.ClipType.MinimalPattern[0], heatClipCodex.ClipType.MinimalPattern[0]);
@@ -595,6 +613,13 @@ namespace M1A1Abrams
                     if (cupola_gun != null)
                     {
                         cupola_gun.localScale = Vector3.zero;
+                    }
+
+                    // Documented tier: "M1A2 SEP: M1A2, FLIR generation = 3 or CROWS". Only the FLIR
+                    // half was implemented; CROWS reaches the top tier on its own as well.
+                    if (vic.FriendlyName == "M1A2")
+                    {
+                        Reflect.Set(vic, "_friendlyName", "M1A2 SEP");
                     }
                 }
             }
