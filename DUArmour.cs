@@ -23,7 +23,7 @@ namespace M1A1Abrams
 
         public override void LoadStaticAssets()
         {
-            string path = Path.Combine(MelonEnvironment.ModsDirectory, "m1a1assets", "du_mats");
+            string path = Path.Combine(MelonEnvironment.ModsDirectory, "m1a1crowsfix_assets", "du_mats");
             AssetBundle mats = AssetBundle.LoadFromFile(path);
 
             if (mats == null)

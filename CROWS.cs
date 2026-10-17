@@ -33,7 +33,7 @@ namespace M1A1Abrams
     /// </summary>
     internal static partial class CROWS
     {
-        private const string ASSET_FOLDER = "m1a1assets";
+        private const string ASSET_FOLDER = "m1a1crowsfix_assets";
         private const float MODEL_SCALE = 0.75f;
         private const string CROWS_NAME = "M153 CROWS II - M2HB";
 

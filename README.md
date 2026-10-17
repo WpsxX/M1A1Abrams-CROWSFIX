@@ -112,7 +112,7 @@ In `Bin/UserData/MelonPreferences.cfg`, section `[M1A1Config]`:
 "M2 Coax" = false              # true = M2HB coax on the same belt selection
 ```
 
-The asset bundle `m1a1assets` (containing `m1a1assets/crows`) must already be in the game's `Mods` folder.
+The asset bundle `m1a1crowsfix_assets` (containing `m1a1crowsfix_assets/crows`) must already be in the game's `Mods` folder.
 
 Legacy key names from other builds (`CROWS (M1E1) <DISABLED>`, `CROWS (M1A1) <DISABLED>`,
 `CROWS Alt Placement`, `CROWS: Alternate Placement (Global)`, `Use Mk 211 Mod 0`, `CROWS Raufoss`,

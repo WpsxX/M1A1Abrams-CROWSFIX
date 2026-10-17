@@ -166,7 +166,7 @@ namespace M1A1Abrams
 
         private static T LoadBundleAsset<T>(string bundle_name, string asset_name) where T : UnityEngine.Object
         {
-            string path = Path.Combine(MelonEnvironment.ModsDirectory, "m1a1assets", bundle_name);
+            string path = Path.Combine(MelonEnvironment.ModsDirectory, "m1a1crowsfix_assets", bundle_name);
             AssetBundle bundle = AssetBundle.LoadFromFile(path);
 
             if (bundle == null)

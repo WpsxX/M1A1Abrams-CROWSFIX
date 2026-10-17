@@ -112,7 +112,7 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 "M2 Coax" = false              # true = 同轴换成 M2HB，共用同一套弹链
 ```
 
-资源包 `m1a1assets`（内含 `m1a1assets/crows`）必须已存在于游戏的 `Mods` 目录。
+资源包 `m1a1crowsfix_assets`（内含 `m1a1crowsfix_assets/crows`）必须已存在于游戏的 `Mods` 目录。
 
 别的构建留下的旧键名（`CROWS (M1E1) <DISABLED>`、`CROWS (M1A1) <DISABLED>`、`CROWS Alt Placement`、
 `CROWS: Alternate Placement (Global)`、`Use Mk 211 Mod 0`、`CROWS Raufoss`、

@@ -85,8 +85,14 @@ namespace M1A1Abrams
             preset_manager_m1ip = null;
 
             use_preset_pool = cfg.CreateEntry<bool>("Use Preset Bundle", false);
-            target_preset_m1 = cfg.CreateEntry<string>("Preset Bundle Path (M1)", "m1a1assets/PresetBundles/ExampleM1");
-            target_preset_m1ip = cfg.CreateEntry<string>("Preset Bundle Path (M1IP)", "m1a1assets/PresetBundles/ExampleM1IP");
+            target_preset_m1 = cfg.CreateEntry<string>("Preset Bundle Path (M1)", "m1a1crowsfix_assets/PresetBundles/ExampleM1");
+            target_preset_m1ip = cfg.CreateEntry<string>("Preset Bundle Path (M1IP)", "m1a1crowsfix_assets/PresetBundles/ExampleM1IP");
+
+            // The asset folder was renamed to stop it colliding with the vanilla M1A1 Abrams mod.
+            // Configs written by older versions still point at the old name, so rewrite them here
+            // instead of leaving those users with a preset path that no longer exists.
+            target_preset_m1.Value = target_preset_m1.Value.Replace("m1a1assets/", "m1a1crowsfix_assets/");
+            target_preset_m1ip.Value = target_preset_m1ip.Value.Replace("m1a1assets/", "m1a1crowsfix_assets/");
 
             has_m256_m1 = cfg.CreateEntry<bool>("M256 Gun (M1)", false);
             has_m256_m1.Description = "120mm cannon (Note: anything relating to ammo is ignored if this is false)";
