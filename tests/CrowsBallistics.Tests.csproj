@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../CrowsPredictor.cs" Link="CrowsPredictor.cs" />
+    <Compile Include="../CrowsBallisticIntercept.cs" Link="CrowsBallisticIntercept.cs" />
+    <Compile Include="../CrowsAmmoRules.cs" Link="CrowsAmmoRules.cs" />
+    <Compile Include="BallisticInterceptTests.cs" />
+  </ItemGroup>
+</Project>

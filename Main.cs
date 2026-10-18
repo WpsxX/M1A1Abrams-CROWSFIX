@@ -9,7 +9,7 @@ using ModUtil;
 using Presets;
 using VUtil = VanillaAssetUtil.ModUtil.Util;
 
-[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.4.2", "ATLAS, WPSX")]
+[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.4.3", "ATLAS, WPSX")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace M1A1Abrams
@@ -19,6 +19,7 @@ namespace M1A1Abrams
         public static Vehicle[] vics;
         public static GameObject game_manager;
         private int valid_scene_count = 0;
+        private object mission_watcher;
 
         public IEnumerator OnGameReady(GameState _)
         {
@@ -48,7 +49,10 @@ namespace M1A1Abrams
         }
 
         public override void OnSceneWasLoaded(int idx, string scene_name) {
-            if (VUtil.MenuScreens.Contains(scene_name))
+
+            bool menu_scene = VUtil.MenuScreens.Contains(scene_name);
+
+            if (menu_scene)
             {
                 ResetMissionAssets();
                 valid_scene_count = 0;
@@ -75,6 +79,56 @@ namespace M1A1Abrams
                 M1A1.Init();
                 valid_scene_count = 0;
             }
+
+            // The registration above is the documented path, but it can fail without a word: RunOrDefer
+            // returns Fail while the state machine does not exist yet, and a handler deferred before the
+            // StateController is torn down is dropped by its OnDestroy. Either one leaves the station
+            // unbuilt with the vanilla cupola gun still on the roof, and neither logs anything. This
+            // watcher never touches the state machine: it waits for the mission's vehicles and for
+            // PlayerReady, then converts once.
+            if (!menu_scene && mission_watcher == null)
+            {
+                mission_watcher = MelonCoroutines.Start(MissionWatcher());
+            }
+        }
+
+        private IEnumerator MissionWatcher()
+        {
+            const int MAX_FRAMES = 3600; // about a minute at 60 fps
+
+            Vehicle[] found = null;
+            bool player_ready = false;
+
+            for (int frame = 0; frame < MAX_FRAMES; frame++)
+            {
+                found = GameObject.FindObjectsByType<Vehicle>(FindObjectsSortMode.None);
+                player_ready = StateController.IsGameStateTriggered(GameState.PlayerReady)
+                    || StateController.IsGameStateComplete(GameState.PlayerReady);
+
+                if (found != null && found.Length > 0 && player_ready)
+                {
+                    break;
+                }
+
+                yield return null;
+            }
+
+            mission_watcher = null;
+
+            if (found == null || found.Length == 0 || !player_ready || M1A1.converted)
+            {
+                yield break;
+            }
+
+            vics = found;
+
+            if (game_manager == null)
+            {
+                game_manager = GameObject.Find("_APP_GHPC_");
+            }
+
+            module_manager.LoadAllDynamicAssets();
+            yield return M1A1.Convert(GameState.PlayerReady);
         }
 
         private void ResetMissionAssets()
@@ -86,3 +140,4 @@ namespace M1A1Abrams
         }
     }
 }
+

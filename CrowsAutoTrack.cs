@@ -2107,11 +2107,6 @@ namespace M1A1Abrams
                 return false;
             }
 
-            if (CROWS.IsDonor(unit))
-            {
-                return false;
-            }
-
             // Friend or foe is the game's own line, and it is drawn on allegiance: a unit flying the
             // same flag is not a target. That is the rule the game's own TargetScanner uses for the AI
             // (`allegiance != mine && allegiance != Neutral`), and the box, the lock and the key all

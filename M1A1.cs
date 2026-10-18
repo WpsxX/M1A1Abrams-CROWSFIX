@@ -316,6 +316,7 @@ namespace M1A1Abrams
 
         internal static void ResetConversionState()
         {
+            converted = false;
             converted_vehicle_ids.Clear();
             CrowsAmmo.Reset();
             Mk19.Reset();
@@ -358,6 +359,37 @@ namespace M1A1Abrams
             }
         }
 
+        // The game renames its own vehicles between builds, and one exact string match converted
+        // nothing at all the moment a name changed - which looks exactly like a station that failed
+        // to build, because every skip below is silent. So the test is tolerant, and every vehicle
+        // the mod passes over says so in the log.
+        private static bool IsConvertibleAbrams(Vehicle vic, out string reason)
+        {
+            reason = null;
+
+            string friendly = vic.FriendlyName == null ? "" : vic.FriendlyName;
+            string unique = vic.UniqueName == null ? "" : vic.UniqueName;
+
+            bool named = friendly.Contains("M1IP") || friendly.Contains("M1 Abrams")
+                || unique == "M1" || unique == "M1IP Abrams";
+
+            if (!named)
+            {
+                reason = "neither an M1 nor an M1IP (friendly '" + friendly + "', unique '" + unique + "')";
+                return false;
+            }
+
+            // A name is not a hull. Everything below reaches into the Abrams hierarchy, so require
+            // it to be there before touching a single component.
+            if (vic.transform.Find("IPM1_rig/HULL/TURRET") == null)
+            {
+                reason = "named like an Abrams (friendly '" + friendly + "') but has no IPM1_rig/HULL/TURRET";
+                return false;
+            }
+
+            return true;
+        }
+
         private static void HandleConversion(Vehicle vic)
         {
             if (vic == null) return;
@@ -365,11 +397,32 @@ namespace M1A1Abrams
             if (!converted_vehicle_ids.Add(vehicle_id)) return;
 
             // Guard against repeated PlayerReady callbacks converting one vehicle twice.
-            if (vic.GetComponentInChildren<CrowsAutoTrack>(true) != null) return;
+            if (vic.GetComponentInChildren<CrowsAutoTrack>(true) != null)
+            {
+                return;
+            }
 
             GameObject vic_go = vic.gameObject;
 
-            if (vic.FriendlyName != "M1IP" && vic.FriendlyName != "M1 Abrams") return;
+            string skip_reason;
+
+            if (!IsConvertibleAbrams(vic, out skip_reason))
+            {
+                PlayerInput player_input = PlayerInput.Instance;
+
+                bool is_player = player_input != null && player_input.CurrentPlayerUnit != null
+                    && vic.gameObject == player_input.CurrentPlayerUnit.gameObject;
+
+                if (is_player)
+                {
+                }
+                else
+                {
+                }
+
+                return;
+            }
+
 
             WeaponsManager weapons_manager = vic.GetComponent<WeaponsManager>();
             WeaponSystemInfo main_gun_info = weapons_manager.Weapons[0];
@@ -623,13 +676,29 @@ namespace M1A1Abrams
                 {
                     RaiseAbramsAntennas(vic);
 
-                    // The original M48 cupola gun is skinned geometry bound to this bone, so
-                    // zeroing the bone's scale is what actually hides it.
-                    Transform cupola_gun = vic.transform.Find("IPM1_rig/HULL/TURRET/CUPOLA/CUPOLA_GUN");
+                    // The original M48 cupola gun is skinned geometry bound to a bone, so zeroing the
+                    // bone's scale is what actually hides it. The rig carries more than one copy of
+                    // that bone (the mission rig, the M1IP_mesh hierarchy and a nested TURRET/TURRET
+                    // branch), and which copy drives the visible mesh differs between variants, so
+                    // every CUPOLA_GUN under the vehicle is scaled down, and the renderers hanging off
+                    // one are switched off too in case they are not skinned to the bone.
+                    Transform[] rig_nodes = vic.GetComponentsInChildren<Transform>(true);
 
-                    if (cupola_gun != null)
+                    for (int i = 0; i < rig_nodes.Length; i++)
                     {
-                        cupola_gun.localScale = Vector3.zero;
+                        if (rig_nodes[i].name != "CUPOLA_GUN")
+                        {
+                            continue;
+                        }
+
+                        rig_nodes[i].localScale = Vector3.zero;
+
+                        Renderer[] gun_parts = rig_nodes[i].GetComponentsInChildren<Renderer>(true);
+
+                        for (int j = 0; j < gun_parts.Length; j++)
+                        {
+                            gun_parts[j].enabled = false;
+                        }
                     }
 
                     // Documented tier: "M1A2 SEP: M1A2, FLIR generation = 3 or CROWS". Only the FLIR
@@ -638,12 +707,35 @@ namespace M1A1Abrams
                     {
                         Reflect.Set(vic, "_friendlyName", "M1A2 SEP");
                     }
+
+                    MelonLogger.Msg("[M1A1] CROWS mounted on '" + vic.FriendlyName + "'.");
                 }
             }
         }
 
+        // Set once per mission, by whichever entry point reaches the conversion first.
+        internal static bool converted;
+
         public static IEnumerator Convert(GameState _)
         {
+            // A mission can be reached through two paths: the PlayerReady handler deferred by Init(),
+            // and the fallback watcher in Main. The deferred path fails silently when the state machine
+            // does not exist yet or when the StateController is torn down between the terrain scene and
+            // the mission scene, so the watcher exists; whichever arrives first converts and the other
+            // returns here. Both the test and the flag happen before the first yield, so the two
+            // coroutines cannot interleave on the main thread.
+            if (converted)
+            {
+                yield break;
+            }
+
+            if (M1A1AbramsMod.vics == null || M1A1AbramsMod.vics.Length == 0)
+            {
+                yield break;
+            }
+
+            converted = true;
+
             // Nothing below runs until GHPC's instanced-geometry pipeline is up and serving cameras.
             //
             // Building the station instantiates and destroys renderers - the donors it borrows from,

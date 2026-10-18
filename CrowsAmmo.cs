@@ -44,15 +44,17 @@ namespace M1A1Abrams
         internal static bool Init()
         {
             if (belts.Count != 0 && ammo_codex_raufoss != null) return true;
+            int scanned = 0;
             foreach (AmmoCodexScriptable codex in Resources.FindObjectsOfTypeAll<AmmoCodexScriptable>())
             {
                 if (codex == null || codex.AmmoType == null) continue;
+                scanned++;
                 if (codex.name == "ammo_M8" || codex.AmmoType.Name == "M8 API") ammo_codex_m8 = codex;
                 if (codex.name == "ammo_50_tracer" || codex.AmmoType.Name == "M20 API-T") ammo_codex_50tracer = codex;
             }
             if (ammo_codex_m8 == null)
             {
-                Warn("M8 API donor missing; CROWS/M2 ammunition is not ready.");
+                Warn("M8 API donor missing; CROWS/M2 ammunition is not ready. (" + scanned + " ammo codices were loaded when this ran.)");
                 return false;
             }
             if (ammo_codex_50tracer == null) ammo_codex_50tracer = ammo_codex_m8;
@@ -147,6 +149,8 @@ namespace M1A1Abrams
         private static void Warn(string message)
         {
             warnings.Add(message);
+            // The set was never read, so a donor lookup that failed here used to leave no trace at all
+            // while quietly taking the whole station down with it.
         }
 
         internal static void AttachTracerLimit(WeaponSystem weapon)
