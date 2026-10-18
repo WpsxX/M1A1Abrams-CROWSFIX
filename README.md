@@ -7,6 +7,8 @@ M153 CROWS model from: "MRAP Oshkosh (West)" (https://marketplace.vigilante.us/p
 
 CITV & M256 model pulled from: "WIP - Abrams M1A2 TUSK 2" (https://skfb.ly/VUwX) by DavidFalke
 
+Mk 19 grenade launcher and CROWS station model from: "M1126 Stryker (Mk. 19)" (https://sketchfab.com/3d-models/m1126-stryker-mk-19-34414f9f33894b7db547546c962147ff) by 42manako, licensed CC BY-NC 4.0
+
 ---
 
 # Thanks to the original author
@@ -54,8 +56,8 @@ Converts all M1IPs to M1A1s equipped with:
 
 # Extra Features/Settings (in mod config)
 - Alternate APFSDS rounds: M827, M829, M829A1, M829A2, M829A3, M829A4
-  (M829A4: long-rod DU, 1,565 m/s, +6.5% penetration at the muzzle over the mod's M829A3 and twice as hard
-  on heavy ERA — see the M829A4 chapter below)
+  (M829A4: long-rod DU, 1,650 m/s, 830 mm at the muzzle and 715 mm at 2,000 m — +5.7% and +8.5% over the
+  mod's M829A3 — with heavy ERA counting for half as much against it; see the APFSDS chapter below)
 - Alternate HEAT rounds: M830A1 (proximity fuse, toggled by double-pressing that round's hotkey)
 - Customize how many M829 and M830 rounds every M1A1/E1 carries
 - The following are disabled by default:
@@ -206,20 +208,38 @@ The station and the optional M2HB coax **share one belt selection**, set by `CRO
   | 1,500 m | 19.0 |
 
 ---
-# M829A4 APFSDS-T
+# 120 mm APFSDS-T rounds
 
-A new 120 mm APFSDS-T round, added to the sabot-round selection alongside M827 / M829 / M829A1 / M829A2 / M829A3.
+The sabot round is picked by `AP Round (M1E1)` / `AP Round (M1A1)`. Every round below is defined in this mod
+against its own published 2,000 m band, so the family stays consistent.
 
-| | M829A3 (existing) | **M829A4 (new)** |
-|---|---|---|
-| Muzzle velocity | 1,555 m/s | **1,565 m/s** |
-| Drag mass | 5.2 kg | **5.8 kg** |
-| Sectional area | 0.00086 | **0.0009** |
-| Drag coefficient | 0.22 | **0.20** |
-| `RhaPenetration` | 690 | **735** |
-| Heavy-ERA ratio | 0.25 | **0.125** |
-| Spall multiplier / max / min | 1.2 / 22 / 7 | **1.25 / 24 / 8** |
-| Penetration at 2,000 m | 579 mm RHAe | **633 mm RHAe** |
+| | M829 | M829A1 | M829A2 | M829A3 | **M829A4** |
+|---|---|---|---|---|---|
+| Muzzle velocity | 1,670 m/s | 1,575 m/s | 1,680 m/s | 1,555 m/s | **1,650 m/s** |
+| Drag mass | 4.27 kg | 4.6 kg | 4.6 kg | 5.2 kg | **5.8 kg** |
+| Sectional area | 0.0009 | 0.00082 | 0.00082 | 0.00086 | **0.0009** |
+| Drag coefficient | 0.20 | 0.20 | 0.20 | 0.22 | **0.20** |
+| `RhaPenetration` (muzzle) | 600 | 665 | 700 | 785 | **830** |
+| Penetration at 2,000 m | 490 mm | 560 mm | 590 mm | 659 mm | **715 mm** |
+| Heavy-ERA ratio | 0.95 | 0.85 | 0.80 | 0.25 | **0.125** |
+| Spall multiplier / max / min | 1.15 | 1.15 / 22 / 5 | 1.15 / 22 / 5 | 1.2 / 22 / 7 | **1.25 / 24 / 8** |
+
+`RhaPenetration` is the muzzle figure; the game scales it by the square of the speed ratio
+(`CurrentPenRating`), so the 2,000 m column falls out of each round's own drag model rather than being
+typed in. The heavy-ERA ratio multiplies Kontakt-5's 200 mm and Relikt's 250 mm before the penetration
+check — 0.95 for the tip-less M829, down to 0.125 for the M829A4's precursor tip.
+
+## M829A4 APFSDS-T
+
+The newest dart in the family and the one whose absence was most visible against late Pact ERA: a longer
+DU rod than the A3's (~1,020 mm), a heavier drag mass, a higher muzzle velocity, and a tip built to defeat
+heavy ERA.
+
+- **830 mm** at the muzzle, **715 mm** at 2,000 m — **+5.7%** and **+8.5%** over the M829A3 (785 / 659 mm).
+- The extra penetration comes from the longer, heavier rod, not from its weight of propellant alone: it
+  leaves the muzzle at 1,650 m/s and keeps 0.9282 of that at 2,000 m, slightly better than the A3's 0.9164.
+- Against heavy ERA the A4's tip pays a quarter of what the A3 pays: 830 − 25 = 805 mm against Kontakt-5,
+  and 715 − 25 = 690 mm at 2,000 m.
 
 ---
 
