@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using GHPC;
@@ -18,6 +18,7 @@ using Reticle;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using VUtil = VanillaAssetUtil.ModUtil.Util;
 
 namespace M1A1Abrams
 {
@@ -34,8 +35,23 @@ namespace M1A1Abrams
     internal static partial class CROWS
     {
         private const string ASSET_FOLDER = "m1a1crowsfix_assets";
+        // The donor station is authored at 0.75 scale; the Mk 19 rebuild is 1:1. LoadModel picks
+        // whichever belongs to the weapon the player configured.
         private const float MODEL_SCALE = 0.75f;
         private const string CROWS_NAME = "M153 CROWS II - M2HB";
+        private const string CROWS_MK19_NAME = "M153 CROWS II - Mk 19";
+
+        // Eye point of the Mk 19's own optics, in GUN's local frame: the crowmk19 prefab's
+        // optics/lens meshes were measured against the trunnion (GUN origin) and land here.
+        // The donor M2's sight sat at z = 0.85, which is 0.35 m past the Mk 19 muzzle (0.50).
+        private static readonly Vector3 MK19_SIGHT_POS = new Vector3(0.028f, -0.186f, 0.282f);
+
+        // Where the donor station puts its sight: the value the original prefab was built around.
+        private static readonly Vector3 M2_SIGHT_POS = new Vector3(0f, -0.085f, 0.85f);
+
+        // The station's elevation stops: the mount and both sights share them so the sight
+        // cannot travel past where the launcher itself stops.
+        private static readonly Vector2 ELEVATION_LIMITS = new Vector2(-15f, 60f);
 
         // The game's sight FoVs map to magnification as roughly 30 degrees = 1x, which is what the
         // borrowed Bradley optics use (8 / 2.5 = its 4x / 12x). So: 1x = 30, 5x = 6, 12x = 2.5.
@@ -752,7 +768,16 @@ namespace M1A1Abrams
 
         private static void LoadModel()
         {
-            string path = Path.Combine(MelonEnvironment.ModsDirectory, ASSET_FOLDER, "crows");
+            // Two models live in this mod: the donor .50 cal station (0.75 scale, its own base
+            // plate height) and the Mk 19 rebuild (1:1). The weapon option decides which one is
+            // loaded, so switching back to the M2 puts the original station back instead of an
+            // Mk 19 firing .50 cal rounds.
+            bool mk19 = M1A1.crows_mk19 != null && M1A1.crows_mk19.Value;
+            string bundle_name = mk19 ? "crowmk19" : "crows";
+            string asset_name = mk19 ? "crowmk19.prefab" : "CROWS.prefab";
+            float model_scale = mk19 ? 1f : MODEL_SCALE;
+
+            string path = Path.Combine(MelonEnvironment.ModsDirectory, ASSET_FOLDER, bundle_name);
 
             if (!File.Exists(path))
             {
@@ -769,15 +794,15 @@ namespace M1A1Abrams
 
             try
             {
-                crows_prefab = bundle.LoadAsset<GameObject>("CROWS.prefab");
+                crows_prefab = bundle.LoadAsset<GameObject>(asset_name);
                 if (crows_prefab == null)
                 {
-                    Fail("CROWS.prefab missing from " + path);
+                    Fail(asset_name + " missing from " + path);
                     return;
                 }
 
                 crows_prefab.hideFlags = HideFlags.DontUnloadUnusedAsset;
-                crows_prefab.transform.localScale = new Vector3(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE);
+                crows_prefab.transform.localScale = new Vector3(model_scale, model_scale, model_scale);
 
                 Transform gun_col = crows_prefab.transform.Find("GUN/GUN COLLIDER");
                 Transform mount_col = crows_prefab.transform.Find("MOUNT/MOUNT COLLIDER");
@@ -1238,12 +1263,12 @@ namespace M1A1Abrams
             gun.transform.localEulerAngles = Vector3.zero;
 
             // UniformArmor reports these colliders as penetrable targets.
-            Util.CreateUniformArmour(gun_col, "M2HB machine gun", 5f, 5f);
+            VUtil.CreateUniformArmour(gun_col, "M2HB machine gun", 5f, 5f);
             UniformArmor gun_armour = gun_col.GetComponent<UniformArmor>();
             gun_armour.Unit = vic;
             gun_col.layer = 7;
 
-            Util.CreateUniformArmour(mount_col, "CROWS", 15f, 15f);
+            VUtil.CreateUniformArmour(mount_col, "CROWS", 15f, 15f);
             UniformArmor mount_armour = mount_col.GetComponent<UniformArmor>();
             mount_armour.Unit = vic;
             mount_col.layer = 7;
@@ -1281,7 +1306,7 @@ namespace M1A1Abrams
 
             AimablePlatform aimable_mount = AddAimablePlatform(mount, model.transform, GHPC.Utility.EnumHelpers.Axis3.Y, false);
             AimablePlatform aimable_gun = AddAimablePlatform(gun_scripts, gun.transform, GHPC.Utility.EnumHelpers.Axis3.X, true);
-            aimable_gun.LocalEulerLimits = new Vector2(-15f, 60f);
+            aimable_gun.LocalEulerLimits = ELEVATION_LIMITS;
             aimable_mount.SpeedPowered = TRAVERSE_SPEED_DEGREES_PER_SECOND;
             aimable_gun.SpeedPowered = ELEVATION_SPEED_DEGREES_PER_SECOND;
 
@@ -1314,7 +1339,26 @@ namespace M1A1Abrams
             }
             
             GameObject browning = UnityEngine.Object.Instantiate(m2_browning, gun.transform);
-            browning.transform.localPosition = new Vector3(0f, 0f, 1.201f);
+            // MK19 muzzle, measured on the crowmk19 prefab in GUN's own frame: the bore ring on
+            // the muzzle face is centred on (0.0005, 0.0489) with a 0.027 m radius, so the
+            // effects sit on the barrel axis instead of on the top edge of the crown.
+            browning.transform.localPosition = new Vector3(0.0005f, 0.0489f, 0.5006f);
+
+            // Mk 19 mode is decided up front: it picks the sight anchor here and the ammo /
+            // cycle / sound setup further down. The coaxial M2 is a separate station.
+            bool mk19 = M1A1.crows_mk19 != null && M1A1.crows_mk19.Value;
+            Vector3 sight_pos = mk19 ? MK19_SIGHT_POS : M2_SIGHT_POS;
+
+            // The crowmk19 mesh IS the visible launcher; the borrowed M85 only supplies the
+            // weapon system, its muzzle transform and its effects. Left visible, a whole
+            // .50 cal barrel hangs out of the Mk 19.
+            if (mk19)
+            {
+                // Mesh renderers only: the muzzle flash and smoke live on ParticleSystemRenderer
+                // components under this object, and killing those takes the effects with them.
+                foreach (var r in browning.GetComponentsInChildren<MeshRenderer>(true)) r.enabled = false;
+                foreach (var r in browning.GetComponentsInChildren<SkinnedMeshRenderer>(true)) r.enabled = false;
+            }
 
             // The donor's own Reparent scripts must not survive the clone: theirs point at the donor
             // tank's cupola, and Reparent.Awake() does `transform.parent = NewParent`, which lifts the
@@ -1324,7 +1368,7 @@ namespace M1A1Abrams
 
             GameObject gun_sight = UnityEngine.Object.Instantiate(m2_gun_sight, gun.transform);
             SanitizeBorrowed(gun_sight, model.transform);
-            gun_sight.transform.localPosition = new Vector3(0f, -0.085f, 0.85f);
+            gun_sight.transform.localPosition = sight_pos;
             gun_sight.transform.localRotation = Quaternion.identity;
             gun_sight.transform.localScale = Vector3.one;
 
@@ -1352,11 +1396,17 @@ namespace M1A1Abrams
             // This point sits at the gun_sight's position but is NOT a CameraSlot, so it stays put.
             GameObject fcs_reference = new GameObject("fcs_reference");
             fcs_reference.transform.SetParent(gun.transform, false);
-            fcs_reference.transform.localPosition = new Vector3(0f, -0.085f, 0.85f);
+            fcs_reference.transform.localPosition = sight_pos;
             fcs_reference.transform.localRotation = Quaternion.identity;
 
-            // Shared ammo selection; CROWS keeps its 400-round belt and no reserve.
-            AmmoType.AmmoClip clip = CrowsAmmo.Select(M1A1.crows_ammo.Value);
+            // Shared ammo selection; CROWS keeps its belt and no reserve. The Mk 19 option
+            // swaps only this station's weapon - the Abrams' coaxial M2 keeps its own rounds.
+            AmmoType.AmmoClip clip = mk19 ? Mk19.Select(M1A1.crows_mk19_ammo.Value) : null;
+            if (clip == null)
+            {
+                mk19 = false;
+                clip = CrowsAmmo.Select(M1A1.crows_ammo.Value);
+            }
             if (clip == null) clip = m8_belt;
 
             GameObject rack_go = new GameObject("crows ammo rack");
@@ -1365,9 +1415,17 @@ namespace M1A1Abrams
 
             GHPC.Weapons.AmmoRack ammo_rack = rack_go.AddComponent<GHPC.Weapons.AmmoRack>();
             ammo_rack.ClipTypes = new AmmoType.AmmoClip[] { clip };
-            Reflect.Set(ammo_rack, "_initialClipCounts", new int[] { 0 });   // no spare belt: 400 + 0
+            // The Mk 19 gets spare belts it can change into; the .50 cal keeps its single belt.
+            int spare_belts = mk19 ? Mk19Rules.ReserveBelts : 0;
+            Reflect.Set(ammo_rack, "_initialClipCounts", new int[] { spare_belts });
             // The rack's Awake() reads both of those, so they are set before the object is activated.
             rack_go.SetActive(true);
+
+            // The HUD counts the rack's stored clips, so make the spare belts certain rather
+            // than relying on Awake having seen the counts above.
+            System.Collections.Generic.List<AmmoType.AmmoClip> stored = ammo_rack.StoredClips;
+            while (stored.Count > spare_belts) stored.RemoveAt(stored.Count - 1);
+            while (stored.Count < spare_belts) stored.Add(clip);
 
             WeaponSystem weapon = browning.GetComponent<WeaponSystem>();
             DetachFromDonor(weapon, model.transform);
@@ -1382,10 +1440,19 @@ namespace M1A1Abrams
             }
 
             weapon.Feed.ReadyRack = ammo_rack;
-            Reflect.Set(weapon, "_cycleTimeSeconds", 0.1091f);
-            Reflect.Set(weapon.Feed, "_totalCycleTime", 0.1091f);
-            weapon.WeaponSound.LoopEventPath = "event:/Weapons/MG_m2_550rmp";
-            CrowsAmmo.AttachTracerLimit(weapon);
+            if (mk19)
+            {
+                // Cycle rate, dispersion and the fire sound all belong to the launcher, not
+                // to the .50 cal donor the weapon object came from.
+                Mk19.Configure(weapon);
+            }
+            else
+            {
+                Reflect.Set(weapon, "_cycleTimeSeconds", 0.1091f);
+                Reflect.Set(weapon.Feed, "_totalCycleTime", 0.1091f);
+                weapon.WeaponSound.LoopEventPath = "event:/Weapons/MG_m2_550rmp";
+                CrowsAmmo.AttachTracerLimit(weapon);
+            }
 
             // The HUD names a weapon from `WeaponSystem.WeaponData` (= its CodexEntry), so the clone
             // would keep introducing itself as the donor's M85. The donor's codex is cloned to keep
@@ -1395,10 +1462,10 @@ namespace M1A1Abrams
             if (donor_codex != null)
             {
                 WeaponSystemCodexScriptable codex = ScriptableObject.CreateInstance<WeaponSystemCodexScriptable>();
-                Util.ShallowCopy(codex, donor_codex);
-                codex.name = "crows_m2hb";
-                codex.FriendlyName = CROWS_NAME;
-                codex.CaliberMm = 12.7f;
+                VUtil.ShallowCopy(codex, donor_codex);
+                codex.name = mk19 ? "crows_mk19" : "crows_m2hb";
+                codex.FriendlyName = mk19 ? CROWS_MK19_NAME : CROWS_NAME;
+                codex.CaliberMm = mk19 ? Mk19Rules.CaliberMm : 12.7f;
                 Reflect.Set(weapon, "CodexEntry", codex);
             }
 
@@ -1430,13 +1497,17 @@ namespace M1A1Abrams
             day_optic.Alignment = OpticAlignment.BoresightStabilized;
             day_optic.RotateAzimuth = true;
             day_optic.RotateElevation = true;
-            day_optic.LocalElevationLimits = new Vector2(-15f, 60f);
+            day_optic.LocalElevationLimits = ELEVATION_LIMITS;
 
             fcs.LaserOrigin = lase.transform;
             fcs.LaserAim = LaserAimMode.ImpactPoint;
             fcs.MaxLaserRange = 4000f;
             fcs.LinkedWeaponSystems = new WeaponSystem[] { weapon };
-            fcs.SuperelevateWeapon = true;
+            // A 241 m/s grenade needs degrees of superelevation at range, and this station's sight
+            // rides the gun - so the Mk 19 keeps the compensation out of the mount and puts it in
+            // the muzzle instead (see Mk19BallisticMuzzle). The mount then holds the aim line,
+            // the sight never climbs, and the rounds still arc. The M2 keeps the stock behaviour.
+            fcs.SuperelevateWeapon = !mk19;
             fcs.SuperleadWeapon = true;
             fcs.CurrentStabMode = StabilizationMode.Vector;
             fcs.SetStabsActive(true);
@@ -1454,10 +1525,42 @@ namespace M1A1Abrams
             // FireControlSystem.Awake() cached these before we changed the fields above, so
             // leaving manual mode would otherwise switch superelevation/lead back off.
             Reflect.Set(fcs, "_autoDumpViaPalmSwitches", true);
-            Reflect.Set(fcs, "_originalSuperelevationMode", true);
+            Reflect.Set(fcs, "_originalSuperelevationMode", !mk19);
             Reflect.Set(fcs, "_originalSuperleadMode", true);
 
             weapon.FCS = fcs;
+
+            if (mk19)
+            {
+                // The barrel has to show the ballistic angle without dragging the sight off the
+                // target. A pivot at the trunnion - GUN's own origin - carries the visible gun and
+                // the borrowed weapon object that owns MuzzleIdentity, so the barrel, the muzzle
+                // flash and the round's launch direction all turn together; GUN itself, which the
+                // camera slot and the fire control's aim line hang from, is left alone.
+                Transform ballistic = new GameObject("BALLISTIC").transform;
+                ballistic.SetParent(gun.transform, false);
+                ballistic.localPosition = Vector3.zero;
+                ballistic.localRotation = Quaternion.identity;
+                ballistic.localScale = Vector3.one;
+
+                gun_vis.transform.SetParent(ballistic, true);
+
+                // The muzzle anchor travels with the barrel too: it is what the round is launched
+                // from and where the flash is spawned, so it has to sit at the tip of the barrel
+                // that is actually shown. The borrowed weapon object itself is left where it is -
+                // WeaponSystem re-places it at the muzzle on every shot, and moving it under this
+                // pivot would put that assignment back into the rotation chain.
+                Transform muzzle = weapon.MuzzleIdentity;
+                if (muzzle != null && muzzle != gun.transform && muzzle != ballistic)
+                {
+                    muzzle.SetParent(ballistic, true);
+                }
+
+                Mk19BallisticMuzzle ballistics = weapon.gameObject.AddComponent<Mk19BallisticMuzzle>();
+                ballistics.fcs = fcs;
+                ballistics.ballistic = ballistic;
+                ballistics.gun = gun.transform;
+            }
 
             // UsableOptic.Start() wires itself into whatever FCS it points at, so both optics
             // are pointed at the CROWS computer; only the day sight claims the main optic slot.
@@ -1487,7 +1590,7 @@ namespace M1A1Abrams
             UsableOptic flir_optic = gun_sight_flir.GetComponent<UsableOptic>();
             DetachFromDonor(flir_optic, model.transform);
             DetachFromDonor(flir_optic.slot, model.transform);
-            gun_sight_flir.transform.localPosition = new Vector3(0f, -0.085f, 0.85f);
+            gun_sight_flir.transform.localPosition = sight_pos;
             gun_sight_flir.transform.localRotation = Quaternion.identity;
             gun_sight_flir.transform.localScale = Vector3.one;
             Reflect.Set(flir_optic.slot, "_reparentTarget", gun.transform);
@@ -1515,7 +1618,7 @@ namespace M1A1Abrams
             flir_optic.Alignment = OpticAlignment.BoresightStabilized;
             flir_optic.RotateAzimuth = true;
             flir_optic.RotateElevation = true;
-            flir_optic.LocalElevationLimits = new Vector2(-15f, 60f);
+            flir_optic.LocalElevationLimits = ELEVATION_LIMITS;
             flir_optic.UseRotationForShake = false;
 
             // One line, once a mission, so a log says whether the thermal sight really was configured this
@@ -1581,6 +1684,11 @@ namespace M1A1Abrams
             CrowsAutoTrack tracker = CrowsAutoTrack.Attach(
                 fcs, vic, new UsableOptic[] { day_optic, flir_optic }, weapon);
 
+            // The Mk 19 station compensates at the muzzle (see Mk19BallisticMuzzle), so the tracker
+            // must not let the fire control lift the mounts - and the sight with them - by the
+            // ballistic angle. Every other station keeps the default and is unaffected.
+            tracker.superelevate_mounts = !mk19;
+
             // The model's servo follows the compensated aim only while the tracker holds a lock.
             aim_slave.tracker = tracker;
             aim_slave.sights = new UsableOptic[] { day_optic, flir_optic };
@@ -1604,7 +1712,7 @@ namespace M1A1Abrams
 
             // --- register the station with the vehicle ---
             WeaponSystemInfo crows_info = new WeaponSystemInfo();
-            crows_info.Name = CROWS_NAME;
+            crows_info.Name = mk19 ? CROWS_MK19_NAME : CROWS_NAME;
             crows_info.FCS = fcs;
             crows_info.Weapon = weapon;
             crows_info.Role = WeaponSystemRole.RoofGun;
@@ -1612,9 +1720,9 @@ namespace M1A1Abrams
 
             InstallWeaponInfo(vic, crows_info);
 
-            Reflect.SetProperty(vic, "AimablePlatforms", Util.AppendToArray(vic.AimablePlatforms, aimable_mount));
-            Reflect.SetProperty(vic, "AimablePlatforms", Util.AppendToArray(vic.AimablePlatforms, aimable_gun));
-            Reflect.Set(vic, "_designatedCameraSlots", Util.AppendToArray(vic.DesignatedCameraSlots, optic_slot));
+            Reflect.SetProperty(vic, "AimablePlatforms", VUtil.AppendToArray(vic.AimablePlatforms, aimable_mount));
+            Reflect.SetProperty(vic, "AimablePlatforms", VUtil.AppendToArray(vic.AimablePlatforms, aimable_gun));
+            Reflect.Set(vic, "_designatedCameraSlots", VUtil.AppendToArray(vic.DesignatedCameraSlots, optic_slot));
 
             Unit player_unit = PlayerInput.Instance == null ? null : PlayerInput.Instance.CurrentPlayerUnit;
 
@@ -1698,7 +1806,7 @@ namespace M1A1Abrams
                 return;
             }
 
-            manager.Weapons = Util.AppendToArray(manager.Weapons, crows_info);
+            manager.Weapons = VUtil.AppendToArray(manager.Weapons, crows_info);
         }
 
         /// <summary>

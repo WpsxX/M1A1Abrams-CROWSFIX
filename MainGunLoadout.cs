@@ -1,6 +1,7 @@
-using GHPC.Weaponry;
+﻿using GHPC.Weaponry;
 using GHPC.Weapons;
 using ModUtil;
+using VUtil = VanillaAssetUtil.ModUtil.Util;
 
 namespace M1A1Abrams
 {
@@ -16,7 +17,7 @@ namespace M1A1Abrams
                 if (!vanillaCapacity && i < 3) rack.ClipCapacity = i == 2 ? 4 : 18;
                 if (rack.ClipCapacity < 0) rack.SetUpVisualSlots();
                 capacity += System.Math.Max(0, rack.ClipCapacity);
-                Util.EmptyRack(rack);
+                VUtil.EmptyRack(rack);
             }
             int[] counts = AmmoLoadoutRules.Fit(requested, capacity);
             int total = 0;

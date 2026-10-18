@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -7,6 +7,7 @@ using GHPC.Weapons;
 using UnityEngine;
 using GHPC.Weaponry;
 using ModUtil;
+using VUtil = VanillaAssetUtil.ModUtil.Util;
 
 namespace M1A1Abrams
 {
@@ -91,7 +92,7 @@ namespace M1A1Abrams
         {
             // xm827
             ammo_m827 = new AmmoType();
-            Util.ShallowCopy(ammo_m827, Assets.ammo_m833);
+            VUtil.ShallowCopy(ammo_m827, Assets.ammo_m833);
             ammo_m827.Name = "M827 APFSDS-T";
             ammo_m827.Caliber = 120;
             ammo_m827.RhaPenetration = 500f;
@@ -100,7 +101,7 @@ namespace M1A1Abrams
             ammo_m827.SectionalArea = 0.0012f;
             ammo_m827.SpallMultiplier = 1.15f;
 
-            Util.Coalesce(ref ammo_codex_m827);
+            VUtil.Coalesce(ref ammo_codex_m827);
             ammo_codex_m827.AmmoType = ammo_m827;
             ammo_codex_m827.name = "ammo_m827";
 
@@ -110,14 +111,14 @@ namespace M1A1Abrams
             clip_m827.MinimalPattern = new AmmoCodexScriptable[1];
             clip_m827.MinimalPattern[0] = ammo_codex_m827;
 
-            Util.Coalesce(ref clip_codex_m827);
+            VUtil.Coalesce(ref clip_codex_m827);
             clip_codex_m827.name = "clip_m827";
             clip_codex_m827.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m827.ClipType = clip_m827;
 
             // m829 
             ammo_m829 = new AmmoType();
-            Util.ShallowCopy(ammo_m829, Assets.ammo_m833);
+            VUtil.ShallowCopy(ammo_m829, Assets.ammo_m833);
             ammo_m829.Name = "M829 APFSDS-T";
             ammo_m829.Caliber = 120;
             // The 1984 baseline round and the weakest dart in the file. Like every other round here its
@@ -143,7 +144,7 @@ namespace M1A1Abrams
             // here, and it is the only round in the family that gets essentially no relief.
             ammo_m829.ArmorOptimizations = HeavyEraOptimizations(0.95f);
 
-            Util.Coalesce(ref ammo_codex_m829);
+            VUtil.Coalesce(ref ammo_codex_m829);
             ammo_codex_m829.AmmoType = ammo_m829;
             ammo_codex_m829.name = "ammo_m829";
 
@@ -153,14 +154,14 @@ namespace M1A1Abrams
             clip_m829.MinimalPattern = new AmmoCodexScriptable[1];
             clip_m829.MinimalPattern[0] = ammo_codex_m829;
 
-            Util.Coalesce(ref clip_codex_m829);
+            VUtil.Coalesce(ref clip_codex_m829);
             clip_codex_m829.name = "clip_m829";
             clip_codex_m829.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m829.ClipType = clip_m829;
 
             // m829a1
             ammo_m829a1 = new AmmoType();
-            Util.ShallowCopy(ammo_m829a1, Assets.ammo_m833);
+            VUtil.ShallowCopy(ammo_m829a1, Assets.ammo_m833);
             ammo_m829a1.Name = "M829A1 APFSDS-T";
             ammo_m829a1.Caliber = 120;
             // The one dart in the file that sits high inside its published band rather than under it: the
@@ -187,7 +188,7 @@ namespace M1A1Abrams
             // approach and nowhere near the A3/A4's precursor tips.
             ammo_m829a1.ArmorOptimizations = HeavyEraOptimizations(0.85f);
 
-            Util.Coalesce(ref ammo_codex_m829a1);
+            VUtil.Coalesce(ref ammo_codex_m829a1);
             ammo_codex_m829a1.AmmoType = ammo_m829a1;
             ammo_codex_m829a1.name = "ammo_m829a1";
 
@@ -197,14 +198,14 @@ namespace M1A1Abrams
             clip_m829a1.MinimalPattern = new AmmoCodexScriptable[1];
             clip_m829a1.MinimalPattern[0] = ammo_codex_m829a1;
 
-            Util.Coalesce(ref clip_codex_m829a1);
+            VUtil.Coalesce(ref clip_codex_m829a1);
             clip_codex_m829a1.name = "clip_m829a1";
             clip_codex_m829a1.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m829a1.ClipType = clip_m829a1;
 
             // m829a2 
             ammo_m829a2 = new AmmoType();
-            Util.ShallowCopy(ammo_m829a2, Assets.ammo_m833);
+            VUtil.ShallowCopy(ammo_m829a2, Assets.ammo_m833);
             ammo_m829a2.Name = "M829A2 APFSDS-T";
             ammo_m829a2.Caliber = 120;
             // 730 mm at the muzzle would hold the published 2,000 m band of 600-630 mm (615 midpoint)
@@ -227,7 +228,7 @@ namespace M1A1Abrams
             // Kontakt-5 at 160 mm and Relikt at 200 mm: better than the A1, still far short of the A3.
             ammo_m829a2.ArmorOptimizations = HeavyEraOptimizations(0.80f);
 
-            Util.Coalesce(ref ammo_codex_m829a2);
+            VUtil.Coalesce(ref ammo_codex_m829a2);
             ammo_codex_m829a2.AmmoType = ammo_m829a2;
             ammo_codex_m829a2.name = "ammo_m829a2";
 
@@ -237,14 +238,14 @@ namespace M1A1Abrams
             clip_m829a2.MinimalPattern = new AmmoCodexScriptable[1];
             clip_m829a2.MinimalPattern[0] = ammo_codex_m829a2;
 
-            Util.Coalesce(ref clip_codex_m829a2);
+            VUtil.Coalesce(ref clip_codex_m829a2);
             clip_codex_m829a2.name = "clip_m829a2";
             clip_codex_m829a2.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m829a2.ClipType = clip_m829a2;
 
             // m829a3
             ammo_m829a3 = new AmmoType();
-            Util.ShallowCopy(ammo_m829a3, Assets.ammo_m833);
+            VUtil.ShallowCopy(ammo_m829a3, Assets.ammo_m833);
             ammo_m829a3.Name = "M829A3 APFSDS-T";
             ammo_m829a3.Caliber = 120;
             // 816 mm at the muzzle would hold the published 2,000 m band of 670-700 mm (685 midpoint)
@@ -267,7 +268,7 @@ namespace M1A1Abrams
             // at 62.5 mm, the "30-50 mm" the round is credited with.
             ammo_m829a3.ArmorOptimizations = HeavyEraOptimizations(0.25f);
 
-            Util.Coalesce(ref ammo_codex_m829a3);
+            VUtil.Coalesce(ref ammo_codex_m829a3);
             ammo_codex_m829a3.AmmoType = ammo_m829a3;
             ammo_codex_m829a3.name = "ammo_m829a3";
 
@@ -277,7 +278,7 @@ namespace M1A1Abrams
             clip_m829a3.MinimalPattern = new AmmoCodexScriptable[1];
             clip_m829a3.MinimalPattern[0] = ammo_codex_m829a3;
 
-            Util.Coalesce(ref clip_codex_m829a3);
+            VUtil.Coalesce(ref clip_codex_m829a3);
             clip_codex_m829a3.name = "clip_m829a3";
             clip_codex_m829a3.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m829a3.ClipType = clip_m829a3;
@@ -332,7 +333,7 @@ namespace M1A1Abrams
             //     the DU alloy itself are inert here: the game has no field for any of them, and none of them
             //     changes the trajectory or the penetration it computes.
             ammo_m829a4 = new AmmoType();
-            Util.ShallowCopy(ammo_m829a4, Assets.ammo_m833);
+            VUtil.ShallowCopy(ammo_m829a4, Assets.ammo_m833);
             ammo_m829a4.Name = "M829A4 APFSDS-T";
             ammo_m829a4.Caliber = 120;
             ammo_m829a4.RhaPenetration = 830f;
@@ -375,7 +376,7 @@ namespace M1A1Abrams
             // `RhaPenetration`, which would double-count it.
             ammo_m829a4.ArmorOptimizations = HeavyEraOptimizations(0.125f);
 
-            Util.Coalesce(ref ammo_codex_m829a4);
+            VUtil.Coalesce(ref ammo_codex_m829a4);
             ammo_codex_m829a4.AmmoType = ammo_m829a4;
             ammo_codex_m829a4.name = "ammo_m829a4";
 
@@ -385,14 +386,14 @@ namespace M1A1Abrams
             clip_m829a4.MinimalPattern = new AmmoCodexScriptable[1];
             clip_m829a4.MinimalPattern[0] = ammo_codex_m829a4;
 
-            Util.Coalesce(ref clip_codex_m829a4);
+            VUtil.Coalesce(ref clip_codex_m829a4);
             clip_codex_m829a4.name = "clip_m829a4";
             clip_codex_m829a4.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m829a4.ClipType = clip_m829a4;
 
             // m830
             ammo_m830 = new AmmoType();
-            Util.ShallowCopy(ammo_m830, Assets.ammo_m456);
+            VUtil.ShallowCopy(ammo_m830, Assets.ammo_m456);
             ammo_m830.Name = "M830 HEAT-MP-T";
             ammo_m830.Caliber = 120;
             ammo_m830.RhaPenetration = 550;
@@ -404,7 +405,7 @@ namespace M1A1Abrams
             ammo_m830.DetonateSpallCount = 40;
             ammo_m830.SectionalArea = 0.0095f;
 
-            Util.Coalesce(ref ammo_codex_m830);
+            VUtil.Coalesce(ref ammo_codex_m830);
             ammo_codex_m830.AmmoType = ammo_m830;
             ammo_codex_m830.name = "ammo_m830";
 
@@ -414,14 +415,14 @@ namespace M1A1Abrams
             clip_m830.MinimalPattern = new AmmoCodexScriptable[1];
             clip_m830.MinimalPattern[0] = ammo_codex_m830;
 
-            Util.Coalesce(ref clip_codex_m830);
+            VUtil.Coalesce(ref clip_codex_m830);
             clip_codex_m830.name = "clip_m830";
             clip_codex_m830.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m830.ClipType = clip_m830;
 
             // m830a1
             ammo_m830a1 = new AmmoType();
-            Util.ShallowCopy(ammo_m830a1, Assets.ammo_m456);
+            VUtil.ShallowCopy(ammo_m830a1, Assets.ammo_m456);
             ammo_m830a1.Name = "M830A1 MPAT-T";
             ammo_m830a1.Coeff = ammo_m829.Coeff;
             ammo_m830a1.Caliber = 120;
@@ -436,7 +437,7 @@ namespace M1A1Abrams
             ammo_m830a1.MaxSpallRha = 35f;
             ammo_m830a1.SectionalArea = 0.0055f;
 
-            Util.Coalesce(ref ammo_codex_m830a1);
+            VUtil.Coalesce(ref ammo_codex_m830a1);
             ammo_codex_m830a1.AmmoType = ammo_m830a1;
             ammo_codex_m830a1.name = "ammo_m830a1";
 
@@ -446,7 +447,7 @@ namespace M1A1Abrams
             clip_m830a1.MinimalPattern = new AmmoCodexScriptable[1];
             clip_m830a1.MinimalPattern[0] = ammo_codex_m830a1;
 
-            Util.Coalesce(ref clip_codex_m830a1);
+            VUtil.Coalesce(ref clip_codex_m830a1);
             clip_codex_m830a1.name = "clip_m830a1";
             clip_codex_m830a1.CompatibleWeaponSystems = new WeaponSystemCodexScriptable[1];
             clip_codex_m830a1.ClipType = clip_m830a1;
@@ -524,15 +525,15 @@ namespace M1A1Abrams
             ammo_m830a1.VisualModel.GetComponent<AmmoStoredVisual>().AmmoType = ammo_m830a1;
             ammo_m830a1.VisualModel.GetComponent<AmmoStoredVisual>().AmmoScriptable = ammo_codex_m830a1;
 
-            Util.CacheAmmo(ammo_m827);
-            Util.CacheAmmo(ammo_m829);
-            Util.CacheAmmo(ammo_m829a1);
-            Util.CacheAmmo(ammo_m829a2);
-            Util.CacheAmmo(ammo_m829a3);
-            Util.CacheAmmo(ammo_m829a4);
-            Util.CacheAmmo(m830a1_forward_frag);
-            Util.CacheAmmo(ammo_m830);
-            Util.CacheAmmo(ammo_m830a1);
+            AmmoCache.CacheAmmo(ammo_m827);
+            AmmoCache.CacheAmmo(ammo_m829);
+            AmmoCache.CacheAmmo(ammo_m829a1);
+            AmmoCache.CacheAmmo(ammo_m829a2);
+            AmmoCache.CacheAmmo(ammo_m829a3);
+            AmmoCache.CacheAmmo(ammo_m829a4);
+            AmmoCache.CacheAmmo(m830a1_forward_frag);
+            AmmoCache.CacheAmmo(ammo_m830);
+            AmmoCache.CacheAmmo(ammo_m830a1);
 
             ap = new Dictionary<string, AmmoClipCodexScriptable>()
             {

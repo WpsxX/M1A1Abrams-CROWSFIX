@@ -20,7 +20,8 @@ CITV 与 M256 模型来自："WIP - Abrams M1A2 TUSK 2"（https://skfb.ly/VUwX�
 > 请使用 [thebeninator 的仓库](https://github.com/thebeninator/M1A1Abrams)。
 
 # M1A1 Abrams
-Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/MelonLoader/)。
+Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/MelonLoader/) 以及共享的
+`VanillaAssetUtil.dll`。
 
 适配 20261014。
 
@@ -65,6 +66,7 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 	- 车长 CITV
 	- M1A1 的贫铀炮塔侧装甲
 	- M153 CROWS（由本 Fork 移植并修好，见下文）
+	- CROWS 上装 Mk 19 榴弹发射器，发射 M430 / M430A1
 	- 炮长热成像的不同设置
 
 # 改装谱系
@@ -84,7 +86,7 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 | M153 CROWS II | 配置项声明了，但从不创建、从不使用，README 标着 *"CURRENTLY NOT FUNCTIONAL"* | 移植进来、装上车、端到端可用 |
 | CROWS 自动跟踪 | — | 目标锁定、目标框、提前量解算、自动测距 |
 | CROWS 瞄具 | — | 白天 + 热成像两套瞄具，1X/5X/10X/15X，瞄准镜内 UI，方位环 |
-| CROWS 弹药 | — | 可选 M8 API / Mk 211 Mod 0 / **M903 SLAP + M962 SLAP-T** 弹链 |
+| CROWS 弹药 | — | 可选 M8 API / Mk 211 Mod 0 / **M903 SLAP + M962 SLAP-T** 弹链，或把整门武器换成 **Mk 19 40 mm 榴弹发射器**（M430 / M430A1） |
 | 同轴机枪 | M240 | 可选 M2HB，与 CROWS 共用同一套弹链选择 |
 | M829A4 APFSDS-T | — | **新增弹种**，穿深按本 mod 自己的 M829A3 折算 |
 
@@ -102,17 +104,20 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 
 ## 怎么打开
 
-在 `Bin/UserData/MelonPreferences.cfg` 的 `[M1A1Config]` 节：
+在 `Bin/UserData/MelonPreferences.cfg` 的 `[M1A1-CROWSFIX]` 节：
 
 ```toml
-"CROWS (M1E1)" = true          # M1E1（由非 IP 的 M1 改装而来）
-"CROWS (M1A1)" = true          # M1A1 / M1IP
-"Alternative Position" = false # true = 武器站移到车长右侧
-"CROWS/M2 Ammo" = "M8 API"     # M8 API | Mk 211 Mod 0 | M903 SLAP
-"M2 Coax" = false              # true = 同轴换成 M2HB，共用同一套弹链
+"CROWS (M1E1)" = true              # M1E1（由非 IP 的 M1 改装而来）
+"CROWS (M1A1)" = true              # M1A1 / M1IP
+"Alternative Position" = false     # true = 武器站移到车长右侧
+"CROWS/M2 Ammo" = "M8 API"         # M8 API | Mk 211 Mod 0 | M903 SLAP
+"M2 Coax" = false                  # true = 同轴换成 M2HB，共用同一套弹链
+"CROWS/MK19 Instead Of M2" = false # true = 武器站换成 Mk 19 榴弹发射器
+"CROWS/MK19 Ammo" = "M430"         # M430 | M430A1，仅装 Mk 19 时生效
 ```
 
-资源包 `m1a1crowsfix_assets`（内含 `m1a1crowsfix_assets/crows`）必须已存在于游戏的 `Mods` 目录。
+资源包 `m1a1crowsfix_assets/crows` 与 `m1a1crowsfix_assets/crowmk19` 必须在游戏的 `Mods` 目录里，
+另外还需要共享的 `VanillaAssetUtil.dll`。
 
 别的构建留下的旧键名（`CROWS (M1E1) <DISABLED>`、`CROWS (M1A1) <DISABLED>`、`CROWS Alt Placement`、
 `CROWS: Alternate Placement (Global)`、`Use Mk 211 Mod 0`、`CROWS Raufoss`、
@@ -131,7 +136,12 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 - 热成像的抖动模糊与抖动量归零，与白天瞄具保持一致。
 
 **伺服**
-- 额定横转 **90°/s**、俯仰 **50°/s**
+- 额定横转 **90°/s**、俯仰 **50°/s**，俯仰限位 **-15° / +60°**
+- 枪管按射程抬升，瞄具保持在目标上，1 km 外画面不再朝天翻
+
+**武器**
+- 默认 M2HB .50，可选弹链（M8 API / Mk 211 Mod 0 / M903 SLAP）
+- 也可把整门武器换成 **Mk 19 榴弹发射器**，见下一章
 
 **自动跟踪（ATT）**
 - **鼠标中键**锁定 / 解锁。
@@ -139,6 +149,34 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 - 锁定时切断玩家自己的瞄向输入，武器站不会跟跟踪器对着干。
 - **瞄准镜内 UI**：`LRF <米数>`、`AMMO <余弹>`、`ARMED`、`Firing Enabled` / `Firing Blocked`、
   `TRACK` / `TRACK LEAD`、倍率标签，以及画面左下角的方位环。
+
+---
+
+# Mk 19 榴弹发射器
+
+在 `Bin/UserData/MelonPreferences.cfg` 的 `[M1A1-CROWSFIX]` 节里有两个键：
+
+```toml
+"CROWS/MK19 Instead Of M2" = true   # 武器站的 .50 换成 Mk 19
+"CROWS/MK19 Ammo" = "M430"          # M430 | M430A1
+```
+
+改之前先关掉游戏（MelonLoader 退出时会覆写该文件），改完重新载入任务。只换武器站那门枪，
+同轴机枪不受影响。
+
+| | M430 HEDP | M430A1 HEDP |
+|---|---|---|
+| 口径 | 40 × 53 mm | 40 × 53 mm |
+| 弹重 | 340 g | 340–350 g |
+| 初速 | 241 m/s | 241 m/s |
+| 破甲厚度（RHA） | 51 mm | 76 mm |
+| 装药 | 32 g A5 | 39 g A5 |
+| 有效破片 | 约 110 枚 | 约 150 枚 |
+| 引信解脱距离 | 25 m | 25 m |
+| 最大射程 | 2,200 m | 2,200 m |
+
+理论射速 350 发/分，96 发弹链 + 2 条备用弹链（共 192 发），换弹 10 秒、无换弹音效。
+火控射表按榴弹重建（40°、30 秒飞行）才能打到 2,200 m；枪管按射程抬升，瞄具保持在目标上。
 
 # CROWS 与同轴 .50 弹药
 
@@ -184,6 +222,32 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 
 # 环境要求与构建
 
-- Gunner, HEAT, PC!，已安装 [MelonLoader](https://github.com/LavaGang/MelonLoader/)。
+## 安装发行版
+
+- Gunner, HEAT, PC!（20261014），已安装 [MelonLoader](https://github.com/LavaGang/MelonLoader/)。
+- 把压缩包解到 `Bin/Mods`，目录结构如下：
+
+```
+Bin/Mods/
+├── M1A1Abrams-CROWSFIX.dll
+├── VanillaAssetUtil.dll
+└── m1a1crowsfix_assets/
+    ├── crows
+    ├── crowmk19
+    ├── mk19_sfx
+    ├── citv
+    ├── citv_monitor
+    ├── du_mats
+    ├── m256
+    └── PresetBundles/
+```
+
+本 mod **硬依赖 `VanillaAssetUtil.dll`**——它既不在 MelonLoader 里也不在游戏本体里，必须和 mod DLL
+放在一起。缺资源包时 mod 会在日志里报错并退回原版车辆，不会崩游戏。
+
+## 从源码构建
+
+目标框架 .NET Framework 4.7.2，引用来自 `Bin/GHPC_Data/Managed`、`Bin/MelonLoader/net35` 与
+`Bin/Mods/VanillaAssetUtil.dll`，用 .NET SDK 的 `csc` 按 `M1A1Abrams.csproj` 编译。
 
 ---

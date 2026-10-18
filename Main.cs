@@ -7,8 +7,9 @@ using UnityEngine;
 using GHPC.Vehicle;
 using ModUtil;
 using Presets;
+using VUtil = VanillaAssetUtil.ModUtil.Util;
 
-[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.4.1", "ATLAS, WPSX")]
+[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.4.2", "ATLAS, WPSX")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace M1A1Abrams
@@ -47,7 +48,7 @@ namespace M1A1Abrams
         }
 
         public override void OnSceneWasLoaded(int idx, string scene_name) {
-            if (Util.MenuScreens.Contains(scene_name))
+            if (VUtil.MenuScreens.Contains(scene_name))
             {
                 ResetMissionAssets();
                 valid_scene_count = 0;
@@ -55,7 +56,7 @@ namespace M1A1Abrams
                 AssetUtil.ReleaseVanillaAssets();
             }
 
-            if (Util.MenuScreensWithLoader.Contains(scene_name)) return;
+            if (VUtil.MenuScreensWithLoader.Contains(scene_name)) return;
 
             valid_scene_count++;
 

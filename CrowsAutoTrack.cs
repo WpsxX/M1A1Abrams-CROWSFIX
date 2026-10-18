@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using GHPC;
@@ -43,6 +43,19 @@ namespace M1A1Abrams
         private const float RECOGNISE_HALF_ANGLE_DEGREES = 0.4f;
 
         private const float MAX_LOCK_RANGE = 4000f;
+
+        /// <summary>
+        /// Whether the fire control may put its superelevation and lead into the mounts.
+        ///
+        /// The Mk 19 station compensates at the muzzle instead (see Mk19BallisticMuzzle), so its
+        /// mounts - and with them the sight the player is looking through - have to stay on the bare
+        /// aim line. Otherwise the sight climbs with the ballistic angle the moment a target is
+        /// locked (degrees at range for a 241 m/s grenade, so the far end of the map goes behind the
+        /// sky) and the compensation being dropped on release reads as a jerk.
+        ///
+        /// Every other station leaves this on and gets the game's own behaviour unchanged.
+        /// </summary>
+        public bool superelevate_mounts = true;
 
         /// <summary>How long the sight may stay obstructed before the lock is dropped.</summary>
         private const float LOST_GRACE_SECONDS = 1.5f;
@@ -286,13 +299,6 @@ namespace M1A1Abrams
         /// have as it works over rough ground, and keeps the acceleration that matters.
         /// </summary>
         private const float LEAD_VELOCITY_SMOOTHING = 2f;
-
-        /// <summary>
-        /// The smallest measured rate worth calling motion, in degrees per second. Only used when the
-        /// target reports no velocity of its own, where all that is left to measure is the aim's noise
-        /// on a parked vehicle.
-        /// </summary>
-        private const float STATIONARY_RATE_DEGREES = 1.5f;
 
         /// <summary>
         /// The smallest speed worth calling motion, in metres per second, for the fallback that measures
@@ -1165,6 +1171,11 @@ namespace M1A1Abrams
                 fcs.ZeroOutLead();
                 fcs.SetLeadHold(false);
 
+                // A station that compensates at the muzzle never had the ballistic angle in the
+                // mounts, so putting the switch back to its own value here is a no-op for it - and
+                // for every other station it restores exactly what ArmLead() found.
+                fcs.SuperelevateWeapon = superelevate_mounts;
+
                 // The platform's travel goes back to the fire control with the lock, so a player aiming
                 // the station by hand again gets the game's own compensation for it rather than none;
                 // see ArmLead for why this module takes it over while a target is held.
@@ -1199,7 +1210,7 @@ namespace M1A1Abrams
 
             try
             {
-                fcs.SuperelevateWeapon = true;
+                fcs.SuperelevateWeapon = superelevate_mounts;
                 fcs.SuperleadWeapon = true;
                 fcs.RecordTraverseRateBuffer = true;
                 fcs.DynamicLead = true;
@@ -1963,6 +1974,19 @@ namespace M1A1Abrams
             if (!Drives(other) || !isActiveAndEnabled || !Tracking || !IsActiveWeapon()
                 || fcs.FcsFault || fcs.CurrentAmmoType == null
                 || fcs.CurrentAmmoType.NoLeadCompensation) return false;
+
+            // Nothing is moving: the target is parked and so is the station. There is no lead to
+            // work out - the round leaves along the line of sight and lands where the sight is
+            // pointed - and skipping the solve keeps sub-floor velocity noise from being multiplied
+            // by a long grenade flight time (a tenth of a metre a second over nineteen seconds is
+            // two metres). The zero offset still means the world lead owns this fire control, so the
+            // game cannot fall back to inferring a lead from the aim's own rotation instead.
+            float parked = TARGET_VELOCITY_FLOOR * TARGET_VELOCITY_FLOOR;
+            if (LeadVelocity().sqrMagnitude <= parked && PlatformLeadVelocity().sqrMagnitude <= parked)
+            {
+                world_lead_active = true;
+                return true;
+            }
             // lead_ready and not lead_suspended: the world lead does not read the traverse rate the
             // suspension exists to protect, so it goes out as soon as the aim is anywhere near the
             // target; see LEAD_ENTRY_CONE_DEGREES.

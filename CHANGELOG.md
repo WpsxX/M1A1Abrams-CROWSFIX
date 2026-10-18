@@ -2,6 +2,24 @@
 
 All notable changes to the **M1A1 Abrams (CROWS fix)** mod.
 
+## [1.4.2] — 2026-10-18
+
+### Added
+- Mk 19 Mod 3 grenade launcher option for the CROWS: `CROWS/MK19 Instead Of M2` swaps the station's .50 cal, `CROWS/MK19 Ammo` picks M430 or M430A1. The coaxial machine gun is unaffected.
+- Mk 19 support: rebuilt fire-control table (40°, 30 s of flight), shaped-charge penetration, barrel superelevation with a sight that stays on the target, 96-round belt with two spare belts and a 10 s reload.
+- README: configuration walkthrough and Mk 19 ammunition data.
+
+### Changed
+- Utility helpers now come from the shared `VanillaAssetUtil.dll` instead of a private copy, and dead code was removed.
+
+### 新增
+- CROWS 可装 Mk 19 Mod 3 榴弹发射器：`CROWS/MK19 Instead Of M2` 换掉武器站的 .50，`CROWS/MK19 Ammo` 选 M430 或 M430A1。同轴机枪不受影响。
+- Mk 19 支持：重建火控射表（40°、30 秒飞行）、破甲弹种、枪管按射程抬升而瞄具保持在目标上、96 发弹链 + 2 条备用弹链、换弹 10 秒。
+- README 增加配置项使用说明与 Mk 19 弹药数据。
+
+### 变更
+- 工具类改用共享的 `VanillaAssetUtil.dll`，不再自带一份；清理死代码。
+
 ## [1.4.1] — 2026-10-18
 
 ### Changed

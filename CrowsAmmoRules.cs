@@ -14,7 +14,9 @@ namespace M1A1Abrams
         internal const float Velocity = 1219f;
         internal const float CoreMass = 0.02315f;
         internal const float CoreDiameter = 0.00762f;
-        internal const float ReferenceDensity = 1.225f;
+        // The engine's standard air density: WorldEnvironmentManager.AirDensity defaults
+        // to 1.25 kg/m^3, and LiveRound integrates drag with that value.
+        internal const float ReferenceDensity = 1.25f;
         internal const float TracerRange = 1500f;
 
         // The donor radius is retained so the cone geometry remains consistent with
@@ -24,31 +26,39 @@ namespace M1A1Abrams
 
         // GHPC's drag model is purely quadratic:
         //     dv/dt = -Coeff * SectionalArea * airDensity / Mass * v * |v|
-        // so speed against distance is hyperbolic, 1/v = 1/v0 + k*x, with
-        //     k = Coeff * SectionalArea * airDensity / Mass,
+        // Integrating that in TIME gives 1/v = 1/v0 + k*t, but the law the player
+        // actually flies is the distance form, which is exponential:
+        //     v(x) = v0 * exp(-k*x),   k = Coeff * SectionalArea * airDensity / Mass,
         // and LiveRound.CurrentPenRating scores penetration as
-        //     P = RhaPenetration * (v / v0)^2 = RhaPenetration / (1 + k*v0*x)^2.
-        // This is the same k the CROWS predictor derives in
+        //     P(x) = RhaPenetration * (v / v0)^2 = RhaPenetration * exp(-2*k*x).
+        // Earlier builds solved the hyperbolic TIME form in x instead, which made k
+        // roughly a thousand times too small and held the round at its muzzle figure
+        // for the whole flight; the coefficients below now come from the exponential
+        // law. This is the same k the CROWS predictor derives in
         // CrowsPredictor.Configure, so the gun and the lead solver stay in step.
         //
-        // The document supplies a retained-speed table and a penetration table
-        // that cannot both hold under this law: its speed falls only 23% from
-        // 500 m to 1,000 m where its penetration falls 26%, and P scales with
-        // v squared, so speed would have to fall 14%. Penetration is what the
-        // player feels, so the curve is anchored on the document's 34 mm at
-        // 500 m and 19 mm at 1,500 m, which lands 1,000 m at 26.0 mm against a
-        // documented 25 mm. Retained speed therefore runs faster than the
-        // document's table (approx. 1,043 / 911 / 809 m/s at 500 / 1,000 /
-        // 1,500 m), which is the price of that choice.
+        // Penetration is what the player feels, so the curve is anchored on the
+        // documented 34 mm at 500 m and 19 mm at 1,500 m. Under the exponential law
+        // those two points fix both k and the muzzle figure, and they land 1,200 m
+        // on 22.61 mm against the documented 22.62 mm - the check that the anchors
+        // and the engine's own scoring agree.
         internal static readonly float Area = (float)(Math.PI * CoreDiameter * CoreDiameter / 4);
+
+        // Design-intent anchors from the round document (README "The new SLAP rounds").
+        internal const float PenetrationAt500 = 34f;
+        internal const float PenetrationAt1500 = 19f;
+
+        // exp(-2k*1500) / exp(-2k*500) = 19/34 fixes k for the 1,000 m span.
         internal static readonly float DragPerMetre =
-            (float)((Math.Sqrt(34.0 / 19.0) - 1.0) / (Velocity * 1000.0));
+            (float)(Math.Log(PenetrationAt500 / (double)PenetrationAt1500) / (2.0 * (1500.0 - 500.0)));
+
+        // Coeff is calibrated at the engine's standard air density, so the k the game
+        // integrates is exactly the k above.
         internal static readonly float DragCoeff = DragPerMetre * CoreMass / (Area * ReferenceDensity);
 
-        // The document's 34 mm at 500 m fixes the muzzle figure exactly:
-        //     MuzzlePenetration = 34 * (1 + k*v0*500)^2.
+        // exp(2*k*500) turns the 500 m anchor back into the muzzle figure.
         internal static readonly float MuzzlePenetration =
-            (float)(34.0 * Math.Pow(1.0 + DragPerMetre * Velocity * 500.0, 2.0));
+            (float)(PenetrationAt500 * Math.Exp(2.0 * DragPerMetre * 500.0));
 
         internal static string Normalize(string value)
         {

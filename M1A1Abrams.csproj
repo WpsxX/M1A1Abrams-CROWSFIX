@@ -128,6 +128,8 @@
     <Compile Include="CROWS.Thermal.cs" />
     <Compile Include="CrowsAmmo.cs" />
     <Compile Include="CrowsAmmoRules.cs" />
+    <Compile Include="Mk19.cs" />
+    <Compile Include="Mk19Rules.cs" />
     <Compile Include="M1Preset.cs" />
     <Compile Include="ModUtil\AssetUtil.cs" />
     <Compile Include="CITV.cs" />

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq.Expressions;
@@ -324,11 +324,6 @@ namespace M1A1Abrams
             }
 
             return null;
-        }
-
-        private static bool Prepare()
-        {
-            return TargetMethod() != null;
         }
 
         /// <summary>

@@ -19,7 +19,8 @@ Thanks also to **Vigilante** for the M153 CROWS model and to **DavidFalke** for 
 > without the CROWS work, use [thebeninator's repository](https://github.com/thebeninator/M1A1Abrams) instead.
 
 # M1A1 Abrams
-A mod for Gunner, HEAT, PC! Requires [MelonLoader](https://github.com/LavaGang/MelonLoader/)
+A mod for Gunner, HEAT, PC! Requires [MelonLoader](https://github.com/LavaGang/MelonLoader/) and the
+shared `VanillaAssetUtil.dll`.
 
 Compatible with 20261014.
 
@@ -64,6 +65,7 @@ Converts all M1IPs to M1A1s equipped with:
 	- Commander CITV
 	- Depleted uranium cheek armour for M1A1s
 	- M153 CROWS (ported in and made functional by this fork — see below)
+	- Mk 19 grenade launcher on the CROWS, firing M430 / M430A1
 	- Different gunner's thermal settings
 
 # Conversions
@@ -83,7 +85,7 @@ Converts all M1IPs to M1A1s equipped with:
 | M153 CROWS II | Declared in the config, never built, marked *"CURRENTLY NOT FUNCTIONAL"* | Ported in, mounted, and working end to end |
 | CROWS automatic tracking | — | Target lock, target box, lead solution, automatic ranging |
 | CROWS sight | — | Day + thermal optics, 1X/5X/10X/15X, sight HUD, azimuth ring |
-| CROWS ammunition | — | Selectable M8 API / Mk 211 Mod 0 / **M903 SLAP + M962 SLAP-T** belts |
+| CROWS ammunition | — | Selectable M8 API / Mk 211 Mod 0 / **M903 SLAP + M962 SLAP-T** belts, or swap the whole weapon for an **Mk 19 40 mm grenade launcher** (M430 / M430A1) |
 | Coax machine gun | M240 | Optional M2HB sharing the CROWS belt selection |
 | M829A4 APFSDS-T | — | **New round**, calibrated against this mod's own M829A3 |
 
@@ -102,17 +104,20 @@ sight, a laser rangefinder and a fire-control computer doing the ballistic work.
 
 ## Enabling it
 
-In `Bin/UserData/MelonPreferences.cfg`, section `[M1A1Config]`:
+In `Bin/UserData/MelonPreferences.cfg`, section `[M1A1-CROWSFIX]`:
 
 ```toml
-"CROWS (M1E1)" = true          # M1E1 (converted non-IP M1s)
-"CROWS (M1A1)" = true          # M1A1 / M1IP
-"Alternative Position" = false # true = station sits to the commander's right
-"CROWS/M2 Ammo" = "M8 API"     # M8 API | Mk 211 Mod 0 | M903 SLAP
-"M2 Coax" = false              # true = M2HB coax on the same belt selection
+"CROWS (M1E1)" = true              # M1E1 (converted non-IP M1s)
+"CROWS (M1A1)" = true              # M1A1 / M1IP
+"Alternative Position" = false     # true = station sits to the commander's right
+"CROWS/M2 Ammo" = "M8 API"         # M8 API | Mk 211 Mod 0 | M903 SLAP
+"M2 Coax" = false                  # true = M2HB coax on the same belt selection
+"CROWS/MK19 Instead Of M2" = false # true = Mk 19 grenade launcher instead of the .50 cal
+"CROWS/MK19 Ammo" = "M430"         # M430 | M430A1, only read when the Mk 19 is mounted
 ```
 
-The asset bundle `m1a1crowsfix_assets` (containing `m1a1crowsfix_assets/crows`) must already be in the game's `Mods` folder.
+The bundles `m1a1crowsfix_assets/crows` and `m1a1crowsfix_assets/crowmk19` must be in the game's
+`Mods` folder, together with the shared `VanillaAssetUtil.dll`.
 
 Legacy key names from other builds (`CROWS (M1E1) <DISABLED>`, `CROWS (M1A1) <DISABLED>`,
 `CROWS Alt Placement`, `CROWS: Alternate Placement (Global)`, `Use Mk 211 Mod 0`, `CROWS Raufoss`,
@@ -132,7 +137,13 @@ run, so an old install keeps working. The log prints the effective values once a
 - Thermal vibration blur and shake are zeroed so the thermal sight matches the day sight.
 
 **Slewing**
-- Rated traverse **90°/s**, elevation **50°/s**
+- Rated traverse **90°/s**, elevation **50°/s**, elevation limits **-15° / +60°**
+- The barrel superelevates for range while the sight stays on the target, so the picture no longer climbs
+  into the sky past 1 km
+
+**Armament**
+- M2HB .50 cal by default, with a selectable belt (M8 API / Mk 211 Mod 0 / M903 SLAP)
+- Optionally the whole weapon is swapped for an **Mk 19 grenade launcher** — see the chapter below
 
 **Automatic target tracking (ATT)**
 - **Middle mouse button** locks and unlocks.
@@ -140,6 +151,35 @@ run, so an old install keeps working. The log prints the effective values once a
 - While locked, the player's own aim input is cut off, so the station does not fight the tracker.
 - **Sight HUD**: `LRF <metres>`, `AMMO <rounds left>`, `ARMED`, `Firing Enabled` / `Firing Blocked`,
   `TRACK` / `TRACK LEAD`, a zoom label, and an azimuth ring in the lower left of the frame.
+
+---
+
+# Mk 19 grenade launcher
+
+Two keys in `Bin/UserData/MelonPreferences.cfg`, section `[M1A1-CROWSFIX]`:
+
+```toml
+"CROWS/MK19 Instead Of M2" = true   # swap the station's .50 cal for an Mk 19
+"CROWS/MK19 Ammo" = "M430"          # M430 | M430A1
+```
+
+Close the game before editing the file — MelonLoader rewrites it on exit — then reload the mission.
+Only the CROWS weapon is swapped; the coaxial machine gun is untouched.
+
+| | M430 HEDP | M430A1 HEDP |
+|---|---|---|
+| Caliber | 40 × 53 mm | 40 × 53 mm |
+| Projectile mass | 340 g | 340–350 g |
+| Muzzle velocity | 241 m/s | 241 m/s |
+| HEAT penetration (RHA) | 51 mm | 76 mm |
+| Explosive filler | 32 g Composition A5 | 39 g Composition A5 |
+| Effective fragments | ~110 | ~150 |
+| Fuze arming distance | 25 m | 25 m |
+| Maximum range | 2,200 m | 2,200 m |
+
+350 rounds/min cyclic, a 96-round belt plus 2 spare belts (192 rounds), 10 s reload, no reload sound.
+The fire-control table is rebuilt for the grenade (40°, 30 s of flight) so the computer can actually
+reach 2,200 m, and the barrel superelevates for range while the sight stays on the target.
 
 # CROWS and coaxial .50 cal ammunition
 
@@ -185,6 +225,34 @@ A new 120 mm APFSDS-T round, added to the sabot-round selection alongside M827 /
 
 # Requirements and building
 
-- Gunner, HEAT, PC!, with [MelonLoader](https://github.com/LavaGang/MelonLoader/) installed.
+## Installing a release
+
+- Gunner, HEAT, PC! (20261014) with [MelonLoader](https://github.com/LavaGang/MelonLoader/) installed.
+- Unpack the archive into `Bin/Mods`, so that it looks like this:
+
+```
+Bin/Mods/
+├── M1A1Abrams-CROWSFIX.dll
+├── VanillaAssetUtil.dll
+└── m1a1crowsfix_assets/
+    ├── crows
+    ├── crowmk19
+    ├── mk19_sfx
+    ├── citv
+    ├── citv_monitor
+    ├── du_mats
+    ├── m256
+    └── PresetBundles/
+```
+
+The mod **hard-depends on `VanillaAssetUtil.dll`** — it is not bundled with MelonLoader or the game, so
+copy it next to the mod DLL. If a bundle is missing the mod logs the error and falls back to the vanilla
+vehicle instead of crashing.
+
+## Building from source
+
+Targets .NET Framework 4.7.2. References come from `Bin/GHPC_Data/Managed`, `Bin/MelonLoader/net35` and
+`Bin/Mods/VanillaAssetUtil.dll`; the assembly is compiled with `csc` from the .NET SDK against
+`M1A1Abrams.csproj`.
 
 ---

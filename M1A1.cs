@@ -65,6 +65,8 @@ namespace M1A1Abrams
         public static MelonPreferences_Entry<bool> crows_m1e1;
         public static MelonPreferences_Entry<bool> crows_m1a1;
         public static MelonPreferences_Entry<string> crows_ammo;
+        public static MelonPreferences_Entry<bool> crows_mk19;
+        public static MelonPreferences_Entry<string> crows_mk19_ammo;
         public static MelonPreferences_Entry<bool> m2_coax;
         public static MelonPreferences_Entry<bool> crows_alt_placement;
 
@@ -174,6 +176,14 @@ namespace M1A1Abrams
             cfg.DeleteEntry("CROWS Raufoss");
             cfg.DeleteEntry("CROWS: Raufoss Ammo (Global)");
             cfg.DeleteEntry("M2 SLAP");
+
+            // The station's own weapon can be swapped for a grenade launcher without touching
+            // the Abrams' coaxial .50 cal: the coax keeps whatever it already carried.
+            crows_mk19 = cfg.CreateEntry<bool>("CROWS/MK19 Instead Of M2", false);
+            crows_mk19.Description = "Mounts an Mk 19 grenade launcher on the CROWS instead of the .50 cal. The coaxial M2 is not affected.";
+            crows_mk19_ammo = cfg.CreateEntry<string>("CROWS/MK19 Ammo", Mk19Rules.M430);
+            crows_mk19_ammo.Comment = "M430 (51 mm RHA, 32 g Comp A5), M430A1 (76 mm RHA, 39 g Comp A5). Only used when the CROWS carries the Mk 19.";
+
             m2_coax = cfg.CreateEntry<bool>("M2 Coax", false);
             m2_coax.Comment = "Replace the coaxial machine gun with an M2HB and bind it to the CROWS/M2 ammunition selection.";
 
@@ -308,6 +318,7 @@ namespace M1A1Abrams
         {
             converted_vehicle_ids.Clear();
             CrowsAmmo.Reset();
+            Mk19.Reset();
         }
 
         /// <summary>

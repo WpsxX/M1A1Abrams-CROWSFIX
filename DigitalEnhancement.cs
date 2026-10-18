@@ -3,6 +3,7 @@ using UnityEngine;
 using GHPC.Camera;
 using GHPC.Player;
 using ModUtil;
+using VUtil = VanillaAssetUtil.ModUtil.Util;
 
 namespace M1A1Abrams
 {
@@ -23,7 +24,7 @@ namespace M1A1Abrams
         private bool last_fixed_reticle_size;
 
         public void Add(float zoom, float blur, float reticle_scale) {
-            slot.OtherFovs = Util.AppendToArray(slot.OtherFovs, zoom);
+            slot.OtherFovs = VUtil.AppendToArray(slot.OtherFovs, zoom);
             zoom_levels[zoom] = new ZoomSetting { Blur = blur, ReticleScale = reticle_scale };
         }
 
