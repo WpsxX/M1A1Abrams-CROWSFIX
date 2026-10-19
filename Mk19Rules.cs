@@ -43,8 +43,10 @@ namespace M1A1Abrams
         internal const float ReloadSeconds = 10f;
 
         // The game integrates dv/dt = -Coeff * SectionalArea * density / Mass * v * |v|,
-        // which is the quadratic drag law with the tabulated coefficient halved.
-        internal const float DragCoeff = 0.105f;     // half of Cd 0.21
+        // which is the quadratic drag law with the tabulated coefficient halved. The real
+        // M430 tops out near 2,200 m, so the coefficient is trimmed to 0.100 (Cd 0.20) to put
+        // the maximum range at about 2,230 m instead of 2,170 m.
+        internal const float DragCoeff = 0.100f;     // half of Cd 0.20
 
         internal static float Area { get { return (float)(Math.PI * 0.040 * 0.040 / 4.0); } }
 

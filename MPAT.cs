@@ -40,19 +40,23 @@ namespace M1A1Abrams
             if (playerUnit == null || playerUnit.gameObject.GetInstanceID() != self_id
                 || weapon == null) return;
 
-            // Middle mouse toggles the proximity fuze, but only while the main gun is the weapon the
-            // player is holding. CrowsAutoTrack binds the same button to CROWS lock/release and gates
-            // itself on the CROWS FCS being the active one, so comparing FCS instance ids keeps the two
-            // mutually exclusive instead of letting a single press do both. The round in the breech is
-            // deliberately not checked: the flag only decides whether the next M830A1 gets a fuze, so it
-            // can be set while reloading or with AP loaded.
-            if (Input.GetKeyDown(KeyCode.Mouse2) && IsMainGunActive())
+            // Middle mouse toggles the proximity fuze. It must be the main gun the player is holding
+            // (CrowsAutoTrack binds the same button to CROWS lock/release) AND the M830A1 must be the
+            // round currently selected: the flag means nothing for any other round, and the coaxial gun
+            // shares this vehicle's fire control, so an FCS comparison alone let the coax toggle it too.
+            // The breech is not required to hold an M830A1 (the flag survives a reload), but switching
+            // to any other round clears it.
+            if (Input.GetKeyDown(KeyCode.Mouse2) && IsMainGunActive() && MpatLoaded())
             {
                 ProximityActive = !ProximityActive;
                 return;
             }
 
-            if (weapon.CurrentAmmoType == null
+            if (ProximityActive && !MpatLoaded()) ProximityActive = false;
+
+            // The double tap on the M830A1's ammo key is a second way to arm the fuze, so it needs the
+            // same two conditions: the main gun held, and an M830A1 in the breech.
+            if (!IsMainGunActive() || weapon.CurrentAmmoType == null
                 || weapon.CurrentAmmoType.CachedIndex != AmmoCachedIdx || loadout == null
                 || ammoKeys == null || InputUtil.MainPlayer == null) return;
             var clips = loadout.LoadedAmmoList.AmmoClips;
@@ -73,16 +77,44 @@ namespace M1A1Abrams
         }
 
         /// <summary>
-        /// True while the player is holding the main gun: the FCS of the weapon the player has selected
-        /// is this weapon's. Mirrors CrowsAutoTrack.IsActiveWeapon, which owns the same middle mouse
-        /// button for CROWS lock/release, so the two can never both answer one press.
+        /// True while the player is holding the main gun: the weapon the player has selected is this
+        /// weapon. Mirrors CrowsAutoTrack.IsActiveWeapon, which owns the same middle mouse button for
+        /// CROWS lock/release, so the two can never both answer one press. The weapon is compared
+        /// directly rather than through its fire control, because the coaxial gun is wired to the same
+        /// FCS as the main gun and an FCS comparison would also match while the player holds the coax.
         /// </summary>
         private bool IsMainGunActive()
         {
             PlayerInput input = PlayerInput.Instance;
             WeaponSystemInfo active = input == null ? null : input.CurrentPlayerWeapon;
-            return active != null && active.FCS != null && weapon != null && weapon.FCS != null
-                && active.FCS.GetInstanceID() == weapon.FCS.GetInstanceID();
+            return active != null && active.Weapon != null && weapon != null
+                && active.Weapon.GetInstanceID() == weapon.GetInstanceID();
+        }
+
+        /// <summary>
+        /// True when the M830A1 is the round the player has selected: in the breech, or the clip the feed
+        /// is holding or about to load. Any other round means the proximity fuze has nothing to act on.
+        /// </summary>
+        private bool MpatLoaded()
+        {
+            if (weapon == null) return false;
+            if (IsMpatRound(weapon.CurrentAmmoType)) return true;
+
+            AmmoFeed feed = weapon.Feed;
+            if (feed == null) return false;
+            return IsMpatClip(feed.LoadedClipType) || IsMpatClip(feed.QueuedClipType);
+        }
+
+        private bool IsMpatRound(AmmoType ammo)
+        {
+            return ammo != null && ammo.CachedIndex == AmmoCachedIdx;
+        }
+
+        private bool IsMpatClip(AmmoType.AmmoClip clip)
+        {
+            var pattern = clip == null ? null : clip.MinimalPattern;
+            return pattern != null && pattern.Length > 0 && pattern[0] != null
+                && pattern[0].AmmoType != null && pattern[0].AmmoType.CachedIndex == AmmoCachedIdx;
         }
 
         private void OnFired(AmmoType ammo, LiveRound live_round)

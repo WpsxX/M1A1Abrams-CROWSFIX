@@ -2,6 +2,20 @@
 
 All notable changes to the **M1A1 Abrams (CROWS fix)** mod.
 
+## [1.4.4] — 2026-10-19
+
+### Fixed
+- Compatibility with **Fulda 1989**: the mod released every vanilla asset handle shared through `VanillaAssetUtil` when a menu scene loaded, which broke Fulda's Leopard 2A4 spawn (the mission hung on the loading screen). That release call is gone.
+- MPAT proximity fuse can only be armed on the main gun with M830A1 loaded. It used to be switchable with any round, and even from the coaxial machine gun.
+- Main gun thermal sight: the reticle no longer enlarges for a single frame when switching between the main gun and the coaxial gun or changing magnification, and no longer grows slightly while the digital zoom settles from blurred to sharp.
+- Mk 19: fire-control table now uses the world's air density and ammunition temperature, removing the ~23 m shortfall at 1500 m; depression limit lowered to -30°; drag coefficient corrected to 0.100.
+
+### 修复
+- 修复与 **Fulda 1989** 的兼容性问题：本 mod 在菜单场景会释放 `VanillaAssetUtil` 共享的原版资源句柄，导致 Fulda 的豹 2A4 无法生成、任务卡在加载界面。已移除该释放调用。
+- MPAT 近炸只在主炮且装填 M830A1 时可切换；此前任意弹种都能切，同轴机枪也能切。
+- 主炮热像：主炮与同轴切换、切换倍率时不再出现单帧放大，数字放大从模糊转清晰时也不再轻微变大。
+- Mk 19：射表改用世界空气密度与弹药温度，修复 1500 m 约 23 m 的落点偏近；俯角下限放宽到 -30°；阻力系数修正为 0.100。
+
 ## [1.4.3] — 2026-10-19
 
 ### Fixed

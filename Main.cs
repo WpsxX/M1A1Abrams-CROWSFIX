@@ -9,7 +9,7 @@ using ModUtil;
 using Presets;
 using VUtil = VanillaAssetUtil.ModUtil.Util;
 
-[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.4.3", "ATLAS, WPSX")]
+[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.4.4", "ATLAS, WPSX")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace M1A1Abrams
@@ -57,7 +57,16 @@ namespace M1A1Abrams
                 ResetMissionAssets();
                 valid_scene_count = 0;
                 module_manager.LoadAllStaticAssets();
-                AssetUtil.ReleaseVanillaAssets();
+
+                // Do NOT call AssetUtil.ReleaseVanillaAssets() here. It releases every vanilla
+                // asset handle in VanillaAssetUtil's shared list, including the ones other mods
+                // loaded. A later LoadVanillaVehicle from another mod (Fulda 1989's Leopard 2A4
+                // module loads the vanilla LEO2A3 prefab when a mission spawns) then hits a
+                // released Addressables handle and throws "Unable to load asset of type
+                // UnityEngine.GameObject from location ...", which leaves the mission without a
+                // player platoon and freezes the loading screen under a per-frame NRE flood.
+                // Our own vanilla assets are few and are re-used across missions, so keeping
+                // them resident is the cheaper price.
             }
 
             if (VUtil.MenuScreensWithLoader.Contains(scene_name)) return;
@@ -72,7 +81,9 @@ namespace M1A1Abrams
 
             if (valid_scene_count == 2)
             {       
-                StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(AssetUtil.ReleaseTempVanillaAssetsDeferred), GameStatePriority.Medium);
+                // Nothing in this mod uses the temp vanilla pool any more (the M1 to M1IP transmog
+                // loads the M1 prefab permanently), so the PlayerReady temp release that used to be
+                // registered here has no work left to do and was removed.
                 StateController.RunOrDefer(GameState.PlayerReady, new GameStateEventHandler(OnGameReady), GameStatePriority.Medium);
 
                 CITVManager.Init();

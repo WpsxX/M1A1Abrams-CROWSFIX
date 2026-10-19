@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using GHPC;
@@ -49,8 +49,10 @@ namespace M1A1Abrams
         private static readonly Vector3 M2_SIGHT_POS = new Vector3(0f, -0.085f, 0.85f);
 
         // The station's elevation stops: the mount and both sights share them so the sight
-        // cannot travel past where the launcher itself stops.
-        private static readonly Vector2 ELEVATION_LIMITS = new Vector2(-15f, 60f);
+        // cannot travel past where the launcher itself stops. The Mk19 needs a lot of depression
+        // for targets on a slope below the vehicle, and the mount is the only thing that can give
+        // it: the sight rides on the gun, so the sight's own limits must allow the same travel.
+        private static readonly Vector2 ELEVATION_LIMITS = new Vector2(-30f, 60f);
 
         // The game's sight FoVs map to magnification as roughly 30 degrees = 1x, which is what the
         // borrowed Bradley optics use (8 / 2.5 = its 4x / 12x). So: 1x = 30, 5x = 6, 12x = 2.5.

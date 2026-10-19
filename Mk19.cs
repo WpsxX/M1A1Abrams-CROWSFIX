@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using GHPC;
@@ -7,6 +7,7 @@ using GHPC.Crew;
 using GHPC.Effects;
 using GHPC.Weapons;
 using GHPC.Weaponry;
+using GHPC.World;
 using MelonLoader;
 using MelonLoader.Utils;
 using ModUtil;
@@ -113,15 +114,38 @@ namespace M1A1Abrams
 
                 if (computer == null) return;
 
-                if (computer.MaxFlightTimeSeconds >= Mk19Rules.FiringTableSeconds
-                    && computer.MaxElevation >= Mk19Rules.FiringTableMaxElevation)
+                // The solver integrates against a fixed 1.2 kg/m3 and is never told what the
+                // world is doing, while the round itself is flown against the environment
+                // (1.25 kg/m3 by default, and the weather moves it further). A grenade hangs
+                // in the air for nine seconds at 1,500 m, so that gap alone drops it twenty-odd
+                // metres short of the sight. Follow the world instead.
+                float density = WorldEnvironmentManager.AirDensity;
+
+                // ResultsAtElevation scales the muzzle velocity by the propellant temperature,
+                // but WeaponSystem spawns the round with the raw figure, so the table has to be
+                // handed the raw figure back or every solution lands short whenever the
+                // ammunition is warmer than the 70 F reference.
+                float temperature_scale = 1f + 0.0004f * (WorldEnvironmentManager.AmmoTempFahrenheit - 70f);
+                if (temperature_scale < 0.5f)
+                {
+                    temperature_scale = 0.5f;
+                }
+                float muzzle_velocity = ammo.MuzzleVelocity / temperature_scale;
+
+                bool table_too_narrow = computer.MaxFlightTimeSeconds < Mk19Rules.FiringTableSeconds
+                    || computer.MaxElevation < Mk19Rules.FiringTableMaxElevation;
+                bool density_changed = Mathf.Abs(computer.AirDensity - density) > 0.005f;
+                bool velocity_changed = Mathf.Abs(computer.MuzzleVelocity - muzzle_velocity) > 0.01f;
+
+                if (!table_too_narrow && !density_changed && !velocity_changed)
                 {
                     return;
                 }
 
                 computer.MaxFlightTimeSeconds = Mk19Rules.FiringTableSeconds;
                 computer.MaxElevation = Mk19Rules.FiringTableMaxElevation;
-                computer.RefreshData();
+                computer.AirDensity = density;
+                computer.SetAmmoType(ammo, muzzle_velocity, Mk19Rules.FiringTableMaxElevation);
             }
             catch (Exception e)
             {
@@ -573,6 +597,12 @@ namespace M1A1Abrams
 
                 if (solution.sqrMagnitude > 1e-6f)
                 {
+                    // The fire control already aims at the ranged point and then adds the table's
+                    // fall of shot as a vertical offset, so the height difference between the
+                    // muzzle and the target is part of the solution by construction. An earlier
+                    // version tilted the vector down by atan2(muzzle.y - aim.y, range) on top of
+                    // that and double counted it: flat ground still looked right, but a target
+                    // below the muzzle at 600 m was aimed almost three degrees into the dirt.
                     Vector3 direction = solution.normalized;
                     Vector3 up = gun.up;
 

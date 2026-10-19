@@ -51,7 +51,10 @@ namespace M1A1Abrams
         }
     }
 
+    // Low priority: this prefix can return false and take over the vanilla method, so any other mod
+    // patching CrewManager must get its turn first. The HasCITV guard keeps it to this mod's vehicles.
     [HarmonyPatch(typeof(CrewManager), "DisableGunner")]
+    [HarmonyPriority(Priority.Low)]
     public class CITVOverrideGunnerDeath
     {
         public static bool Prefix(CrewManager __instance)
@@ -72,6 +75,7 @@ namespace M1A1Abrams
     }
 
     [HarmonyPatch(typeof(CrewManager), "DisableCommander")]
+    [HarmonyPriority(Priority.Low)]
     public class CITVOverrideCommanderDeath
     {
         public static bool Prefix(CrewManager __instance)
@@ -113,6 +117,7 @@ namespace M1A1Abrams
     }
 
     [HarmonyPatch(typeof(CrewManager), "IsCrewMemberConscious")]
+    [HarmonyPriority(Priority.Low)]
     public class CITVOverrideConscious
     {
         public static bool Prefix(CrewManager __instance, CrewPosition position, ref bool __result)
