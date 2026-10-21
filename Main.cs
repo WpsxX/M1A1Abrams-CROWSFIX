@@ -9,7 +9,7 @@ using ModUtil;
 using Presets;
 using VUtil = VanillaAssetUtil.ModUtil.Util;
 
-[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.4.4", "ATLAS, WPSX")]
+[assembly: MelonInfo(typeof(M1A1AbramsMod), "M1A1 Abrams", "1.4.5", "ATLAS, WPSX")]
 [assembly: MelonGame("Radian Simulations LLC", "GHPC")]
 
 namespace M1A1Abrams

@@ -364,6 +364,7 @@ namespace M1A1Abrams
             fcs.SuperleadWeapon = true;
             fcs.CurrentStabMode = StabilizationMode.Vector;
             fcs.SetStabsActive(true);
+            CrowsStabiliserLock.Lock(fcs);
             fcs.RecordTraverseRateBuffer = true;
             fcs.TraverseBufferSeconds = 0.1f;
             fcs.DynamicLead = true;

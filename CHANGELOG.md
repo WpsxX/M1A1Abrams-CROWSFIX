@@ -2,6 +2,14 @@
 
 All notable changes to the **M1A1 Abrams (CROWS fix)** mod.
 
+## [1.4.5] — 2026-10-22
+
+### Fixed
+- The CROWS gun station could end up permanently stabilised: with the stabiliser switched off the fire control still pushed an absolute world aim to the mount every frame, so the station held its world bearing instead of riding the turret - and once the sight had been opened the stabiliser could no longer be switched off at all. The station's stabiliser is now locked on: `FireControlSystem.SetStabsActive` is intercepted for this fire control only, so a switch-off request is refused before it reaches the mounts, with a per-frame fallback that re-arms it if anything else clears it. The main gun's stabiliser is untouched.
+
+### 修复
+- CROWS 武器站可能变成永久稳定：关闭稳定器后火控仍每帧把绝对世界方向喂给炮座，炮座因此保持世界方位而不是跟着炮塔走；开镜之后甚至再也关不掉稳定器。现在本站稳定器强制常开：只对本站火控拦截 `FireControlSystem.SetStabsActive`，关闭请求在到达炮座前就被拒绝，另有每帧兜底重新打开。主炮稳定器行为不变。
+
 ## [1.4.4] — 2026-10-19
 
 ### Fixed

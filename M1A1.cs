@@ -319,6 +319,7 @@ namespace M1A1Abrams
             converted = false;
             converted_vehicle_ids.Clear();
             CrowsAmmo.Reset();
+            CrowsStabiliserLock.Reset();
             Mk19.Reset();
         }
 

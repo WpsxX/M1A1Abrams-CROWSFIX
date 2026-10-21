@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using GHPC;
@@ -223,6 +223,18 @@ namespace M1A1Abrams
             public CrowsAutoTrack tracker;
 
             /// <summary>
+            /// Backs the fix below out without a rebuild: with the stabiliser off, feed the mount the
+            /// old world-space aim every frame again. Exposed so it can be flipped from the debug bridge.
+            /// </summary>
+            public static bool keep_world_aim_when_unstabilized = false;
+
+            /// <summary>
+            /// Whether the station was stabilized on the previous frame. Only the transition matters: it is
+            /// where the stale world-space goal has to be dropped.
+            /// </summary>
+            private bool stabilizer_was_active;
+
+            /// <summary>
             /// Drives the model onto the aim and the cradle back onto its own plane, with the sight's
             /// world orientation captured first and put back afterwards.
             ///
@@ -285,6 +297,20 @@ namespace M1A1Abrams
             }
 
             /// <summary>
+            /// Keeps the station stabilised. SetStabsActive is otherwise owned by the game's crew and
+            /// input code, and the mount is only servoed correctly while it is on, so it is pinned here.
+            /// </summary>
+            private void PinStabiliser()
+            {
+                if (fcs == null || fcs.StabsActive)
+                {
+                    return;
+                }
+
+                fcs.SetStabsActive(true);
+            }
+
+            /// <summary>
             /// Drives the model onto the aim and the cradle onto its own plane, with the sight's world
             /// orientation captured first and put back afterwards. Run from both LateUpdate and pre-cull;
             /// see HandlePreCull for why one place is not enough.
@@ -298,6 +324,12 @@ namespace M1A1Abrams
                 // Before anything reads the platforms, make sure they still carry the station's rated
                 // slew. This is the one write that has to happen no matter which sight is in use.
                 PinRatedSpeeds();
+
+                // Stabilisation is locked on for this station. The servo was written for a mount that
+                // holds the aim against the hull, so an attempt to switch stabilisation off - from the
+                // crew order, the keybind or another mod - is undone here instead of being allowed to
+                // leave the station following the hull with the sight still tracking.
+                PinStabiliser();
 
                 // The sight is only turned while it is the sight the player is looking through. A lock
                 // outlives the station being selected - it is kept so the station picks the track back up
@@ -621,18 +653,45 @@ namespace M1A1Abrams
                 }
 
                 // When stabilization is enabled, the station goal is world-space and the direct write
-                // keeps the sight and muzzle together at render time. When the player turns stabilization
-                // off, feed the same aim as a local/unstabilized goal and leave the platform's own
-                // transform update in charge; forcing a world rotation here would silently re-enable
-                // point stabilization every frame.
+                // keeps the sight and muzzle together at render time.
+                //
+                // When the player turns stabilization off the mount is left alone. Feeding it a
+                // world-space aim every frame *is* a stabilizer: SetAimVector(stabilized:false,
+                // worldSpace:true) folds that world aim into the current rotation on every call
+                // (AimablePlatform.SetAimVector), so the mount keeps chasing one fixed world direction
+                // and the station never follows the hull - which in game reads as the stabilizer toggle
+                // doing nothing. The fire control already hands the mount its own unstabilized goal, so
+                // all that is left to do here is drop the stale world goal on the transition and stay out
+                // of the way.
                 if (fcs.StabsActive)
                 {
                     mount_platform.SetAimVector(aim.normalized, true, true, false, false);
                     mount_platform.ForceAimVectorNow(aim);
+                    stabilizer_was_active = true;
                 }
                 else
                 {
-                    mount_platform.SetAimVector(aim.normalized, true, false, true, false);
+                    if (stabilizer_was_active)
+                    {
+                        stabilizer_was_active = false;
+                        if (!keep_world_aim_when_unstabilized)
+                        {
+                            try
+                            {
+                                // StabilizationMode.None: the platform stops chasing the world goal it was
+                                // left with and rides the hull until the fire control aims it again.
+                                Reflect.Call(mount_platform, "UnsetAimVector");
+                            }
+                            catch (Exception)
+                            {
+                            }
+                        }
+                    }
+
+                    if (keep_world_aim_when_unstabilized)
+                    {
+                        mount_platform.SetAimVector(aim.normalized, true, false, true, false);
+                    }
                 }
 
                 model.rotation = mount_platform.Rotation;

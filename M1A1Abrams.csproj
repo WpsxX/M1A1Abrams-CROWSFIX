@@ -155,6 +155,7 @@
     <Compile Include="ModUtil\AmmoCache.cs" />
     <Compile Include="CITV.cs" />
     <Compile Include="CrowsAimLock.cs" />
+    <Compile Include="CrowsStabiliserLock.cs" />
     <Compile Include="CrowsAutoTrack.cs" />
     <Compile Include="CrowsAutoTrack.Motion.cs" />
     <Compile Include="CrowsAutoTrack.Ballistics.cs" />
