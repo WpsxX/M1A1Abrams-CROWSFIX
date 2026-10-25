@@ -31,6 +31,12 @@ Gunner, HEAT, PC! 的 mod，需要 [MelonLoader](https://github.com/LavaGang/Mel
 
 修复 CROWS。
 
+# 1.4.6 更新内容
+- 更换 CROWS 与 M2 的模型，贴图重做为 2048。
+- 修复车身与 M2 木柄发灰发白。
+- M1 → M1IP 转换后保留 M1E1 设置，M1A1 与 M1E1 两套配置互相独立。
+- 修正正前方 CROWS 座位高度，M2 与 MK19 各自独立。
+
 玩法/安装教程：https://www.youtube.com/watch?v=e_qNIyBb2SA
 
 如果通过 Steam 启动报错，请直接运行游戏主程序。

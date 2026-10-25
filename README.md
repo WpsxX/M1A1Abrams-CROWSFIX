@@ -30,6 +30,12 @@ Fixes CITV.
 
 Fixes CROWS.
 
+# What's new in 1.4.6
+- Replaced the CROWS and M2 models, with the textures rebuilt at 2048.
+- Fixed the CROWS body and the M2 wooden grips rendering washed-out grey.
+- M1 → M1IP conversions keep the M1E1 settings again, so the M1A1 and M1E1 sets stay independent.
+- Corrected the front CROWS seat height for the M2 and the MK 19.
+
 Gameplay/Install guide: https://www.youtube.com/watch?v=e_qNIyBb2SA
 
 If you get an error launching through Steam you will need to run the game executable directly.

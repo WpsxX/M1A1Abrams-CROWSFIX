@@ -293,6 +293,20 @@ namespace M1A1Abrams
             }
 
             weapon.Feed.ReadyRack = ammo_rack;
+
+            // 弹链：姿势、蒙皮权重全部取自模型，代码只负责步进与俯仰跟随。
+            // 俯仰不能靠父级传递 —— BELT_RIG 挂在 MOUNT VIS 下，不跟着 GUN 转。
+            CrowsBeltRig belt_rig = model.AddComponent<CrowsBeltRig>();
+            Transform cradle = model.transform.Find("GUN");
+            if (cradle == null)
+            {
+                cradle = ModUtil.Transforms.FindDeep(model.transform, "GUN");
+            }
+            if (cradle == null)
+            {
+                MelonLoader.MelonLogger.Warning("[BELT] GUN not found under " + model.name + ", belt will not follow elevation");
+            }
+            belt_rig.Bind(cradle, weapon);
             if (mk19)
             {
                 // Cycle rate, dispersion and the fire sound all belong to the launcher, not

@@ -105,6 +105,9 @@
     <Reference Include="UnityEngine.ParticleSystemModule">
       <HintPath>$(ManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AnimationModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
@@ -139,6 +142,7 @@
     <Compile Include="Ammo_120mm.cs" />
     <Compile Include="Assets.cs" />
     <Compile Include="CROWS.cs" />
+    <Compile Include="CROWS.Belt.cs" />
     <Compile Include="CROWS.Ammo.cs" />
     <Compile Include="CROWS.Thermal.cs" />
     <Compile Include="CROWS.Model.cs" />
@@ -180,6 +184,7 @@
     <Compile Include="ModUtil\Module.cs" />
     <Compile Include="ModUtil\ModuleManager.cs" />
     <Compile Include="ModUtil\Reflect.cs" />
+    <Compile Include="ModUtil\Transforms.cs" />
     <Compile Include="MPAT.cs" />
     <Compile Include="Presets\PresetManager.cs" />
     <Compile Include="Presets\PresetMarker.cs" />

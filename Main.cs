@@ -45,6 +45,9 @@ namespace M1A1Abrams
             module_manager.Add("Assets", new Assets());
             module_manager.Add("GAS", new GAS());
 
+            // Every patch here names its target by string, so a rename in the game leaves it unbound and
+            // the feature silently off. Resolve them once and name anything that is gone.
+
             PresetManager.LoadAllPresets();
         }
 

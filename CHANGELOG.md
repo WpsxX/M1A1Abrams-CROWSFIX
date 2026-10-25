@@ -2,6 +2,24 @@
 
 All notable changes to the **M1A1 Abrams (CROWS fix)** mod.
 
+## [1.4.6] — 2026-10-25
+
+### Changed
+- Replaced the CROWS and M2 models, with the textures rebuilt at 2048.
+
+### Fixed
+- The CROWS body and the M2 wooden grips no longer render washed-out grey.
+- M1 → M1IP conversions keep the M1E1 settings, so the M1A1 and M1E1 configuration sets stay independent.
+- Corrected the front CROWS seat height, separately for the M2 and the MK 19.
+
+### 变更
+- 更换 CROWS 与 M2 的模型，贴图重做为 2048。
+
+### 修复
+- 车身与 M2 木柄不再发灰发白。
+- M1 → M1IP 转换后保留 M1E1 设置，M1A1 与 M1E1 两套配置互相独立。
+- 修正正前方 CROWS 座位高度，M2 与 MK19 各自独立。
+
 ## [1.4.5] — 2026-10-22
 
 ### Fixed
