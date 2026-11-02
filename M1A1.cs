@@ -669,17 +669,19 @@ namespace M1A1Abrams
 
             if (cfg_crows)
             {
-                // Height is measured from the TURRET origin. The front (non-alt) seat needs one value
-                // per weapon: the M2 station sat 30 cm high and came down in three passes
-                // (-20, -8, -2), while the Mk 19 prefab carries a different pivot of its own, so it
-                // rides 30 cm above the M2 seat and 5 cm further back. X/Z already lined up with the
-                // hatch ring for both. The alt (right-hand) seat is left alone - it was already
-                // sitting right in game.
+                // Heights are measured from the TURRET origin. The .50 cal station sat 30 cm high and
+                // came down in three passes (-20, -8, -2); the Mk 19 prefab carries a different pivot,
+                // so its hatch seat rides 31 cm above the .50 cal one and 5 cm further back. The
+                // right-hand (alt) seat of each weapon was tuned separately as well.
+                // Four independent absolute constants: no shared base value, nothing derived from the
+                // other weapon or the other placement, so tuning one cannot move any of the others.
                 bool mk19_mounted = crows_mk19 != null && crows_mk19.Value;
                 Vector3 crows_pos = crows_alt_placement.Value
-                    ? new Vector3(1.4f, 1.1164f, -0.5873f)
+                    ? (mk19_mounted
+                        ? new Vector3(1.4f, 1.15f, -0.5873f)
+                        : new Vector3(1.4f, 0.84f, -0.5873f))
                     : (mk19_mounted
-                        ? new Vector3(0.7855f, 1.2855f, 0.4682f)
+                        ? new Vector3(0.7855f, 1.2955f, 0.4682f)
                         : new Vector3(0.7855f, 0.9855f, 0.5182f));
 
                 if (CROWS.Mount(vic, vic.transform.Find("IPM1_rig/HULL/TURRET"), crows_pos, crows_alt_placement.Value, night_optic))

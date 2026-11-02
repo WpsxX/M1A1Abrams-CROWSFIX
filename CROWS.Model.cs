@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using GHPC;
@@ -33,6 +33,15 @@ namespace M1A1Abrams
     /// </summary>
     internal static partial class CROWS
     {
+        // Every bundle we have loaded stays loaded for the session: a live station's materials point
+        // into them and a released texture renders as a bare white surface (see LoadModel's finally).
+        private static readonly List<AssetBundle> held_bundles = new List<AssetBundle>();
+
+        // Which weapon the currently loaded prefab belongs to. Init() compares this against the
+        // preference so switching .50 cal <-> Mk 19 reloads the model instead of mounting the old one
+        // with the new weapon's sight and ammo.
+        private static bool loaded_mk19;
+
         private static void LoadModel()
         {
             // Two models live in this mod: the donor .50 cal station (0.75 scale, its own base
@@ -93,26 +102,128 @@ namespace M1A1Abrams
 
                 MeshRenderer gun_renderer = gun_vis.GetComponent<MeshRenderer>();
                 MeshRenderer mount_renderer = mount_vis.GetComponent<MeshRenderer>();
-                Shader flir_shader = Shader.Find("Standard (FLIR)");
 
                 if (gun_renderer == null || mount_renderer == null
-                    || gun_renderer.sharedMaterial == null || mount_renderer.sharedMaterial == null
-                    || flir_shader == null)
+                    || gun_renderer.sharedMaterial == null || mount_renderer.sharedMaterial == null)
                 {
                     crows_prefab = null;
-                    Fail("CROWS.prefab is missing a renderer or the Standard (FLIR) shader");
+                    Fail("CROWS.prefab is missing a renderer or material");
                     return;
                 }
 
-                gun_renderer.sharedMaterial.shader = flir_shader;
-                mount_renderer.sharedMaterial.shader = flir_shader;
+                // Only the Mk 19 bundle needs this. The donor .50 cal station (bundle "crows") ships
+                // materials that already render correctly against this player, and rebuilding those
+                // throws away their _MetallicGlossMap/_OcclusionMap - which is what turned the M2
+                // station dark and plasticky. The two models are handled separately on purpose.
+                if (mk19)
+                {
+                    RebuildMaterials(crows_prefab);
+                }
+
+                // The bundle ships its own Standard-shader materials with baked albedo/normal maps.
+                // Overwriting them with "Standard (FLIR)" made gun and belt render as flat white in
+                // the normal view, so only the thermal marker component is added here.
                 crows_prefab.AddComponent<HeatSource>().Heat = 5f;
             }
             finally
             {
-                // The prefab and its dependencies stay loaded through their references; the bundle
-                // itself no longer needs to keep its file mapping and native decompression state.
-                bundle.Unload(false);
+                // Do NOT unload. The prefab is instantiated much later, in MountInternal, and a
+                // material only pulls its textures in when it is first drawn. Unloading here left the
+                // station with live materials but dead texture objects, so it rendered as bare white
+                // _Color under lighting - which is exactly the "the whole CROWS is white" report.
+                // Both bundles are a few hundred kB, so they are simply kept for the session.
+                if (crows_prefab != null)
+                {
+                    loaded_mk19 = mk19;
+                    if (!held_bundles.Contains(bundle))
+                    {
+                        held_bundles.Add(bundle);
+                    }
+                }
+                else
+                {
+                    bundle.Unload(true);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Rebuilds the station's solid materials on the game's own Standard shader and re-binds the
+        /// bundle's albedo, normal and packed metal/gloss maps by hand.
+        ///
+        /// The Mk 19 bundle carries its own copy of Standard, compiled when the bundle was built.
+        /// Against this player it does not sample the maps: gun and mount both came out as flat pale
+        /// grey (pixel deviation inside a single face is ~0, and changing _Color changes them, so the
+        /// shader runs - it just never reads the texture). Swapping in the shader the game itself uses
+        /// and binding the maps explicitly fixes the surface without touching the artwork.
+        ///
+        /// Materials with no albedo (the muzzle-flash particle materials) are left untouched.
+        /// </summary>
+        private static void RebuildMaterials(GameObject root)
+        {
+            Shader standard = Shader.Find("Standard");
+            if (standard == null)
+            {
+                Fail("Standard shader is not available, station keeps its bundled materials");
+                return;
+            }
+
+            MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Material[] materials = renderers[i].sharedMaterials;
+                bool replaced = false;
+
+                for (int m = 0; m < materials.Length; m++)
+                {
+                    Material source = materials[m];
+                    if (source == null || !source.HasProperty("_MainTex"))
+                    {
+                        continue;
+                    }
+
+                    Texture albedo = source.GetTexture("_MainTex");
+                    if (albedo == null)
+                    {
+                        continue;
+                    }
+
+                    Texture normal = source.HasProperty("_BumpMap") ? source.GetTexture("_BumpMap") : null;
+                    Texture metallic_gloss = source.HasProperty("_MetallicGlossMap") ? source.GetTexture("_MetallicGlossMap") : null;
+                    Texture occlusion = source.HasProperty("_OcclusionMap") ? source.GetTexture("_OcclusionMap") : null;
+
+                    Material rebuilt = new Material(standard);
+                    rebuilt.name = source.name;
+                    rebuilt.SetTexture("_MainTex", albedo);
+                    if (normal != null)
+                    {
+                        rebuilt.SetTexture("_BumpMap", normal);
+                        rebuilt.EnableKeyword("_NORMALMAP");
+                    }
+                    // A source with a packed metallic-gloss map must keep it: copying only the scalar
+                    // _Metallic/_Glossiness never reproduces a mapped surface.
+                    if (metallic_gloss != null)
+                    {
+                        rebuilt.SetTexture("_MetallicGlossMap", metallic_gloss);
+                        rebuilt.EnableKeyword("_METALLICGLOSSMAP");
+                    }
+                    if (occlusion != null)
+                    {
+                        rebuilt.SetTexture("_OcclusionMap", occlusion);
+                        rebuilt.EnableKeyword("_OCCLUSIONMAP");
+                    }
+                    rebuilt.SetColor("_Color", source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white);
+                    rebuilt.SetFloat("_Glossiness", source.HasProperty("_Glossiness") ? source.GetFloat("_Glossiness") : 0.35f);
+                    rebuilt.SetFloat("_Metallic", source.HasProperty("_Metallic") ? source.GetFloat("_Metallic") : 0f);
+
+                    materials[m] = rebuilt;
+                    replaced = true;
+                }
+
+                if (replaced)
+                {
+                    renderers[i].sharedMaterials = materials;
+                }
             }
         }
 

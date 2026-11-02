@@ -2,6 +2,35 @@
 
 All notable changes to the **M1A1 Abrams (CROWS fix)** mod.
 
+## [1.4.7] — 2026-11-02
+
+### Fixed
+- The Mk 19 station no longer renders as flat pale grey. Its materials are rebuilt on the game's
+  own Standard shader with the albedo, normal and packed metal/gloss maps re-bound by hand; the
+  bundle's own compiled copy of Standard never sampled them. The donor .50 cal station keeps its
+  bundled materials untouched - rebuilding those drops their `_MetallicGlossMap` and turns the
+  station dark and plasticky.
+- The asset bundle is kept alive for the session. Unloading it before the model was instantiated
+  left live materials pointing at released textures, which rendered as bare white surfaces under
+  lighting.
+- Switching "CROWS/MK19 Instead Of M2" now reloads the station model instead of mounting the old
+  shell with the new weapon's sight and ammunition.
+- The CROWS seat height is four independent absolute constants - Mk 19 hatch 1.2955 / alt 1.15,
+  .50 cal hatch 0.9855 / alt 0.84 - so tuning one weapon can no longer move the other.
+- The commander's camera slot is written absolutely in both placements, with the vanilla offset
+  captured once per vehicle, so the two placements cannot leak into each other.
+
+### 修复
+- MK19 武器站不再整体发灰发白：其材质改用游戏自带的 Standard 着色器重建，并手动重新绑定反照率、
+  法线与打包的金属/光泽贴图（包内自带的 Standard 副本不采样这些贴图）。捐赠的 .50 cal 武器站保持
+  包内材质不动——重建会丢掉它的 `_MetallicGlossMap`，反而使台站发暗发假。
+- 资源包在整局会话内常驻：此前在模型实例化之前卸载资源包，会让仍在使用的材质指向已释放的贴图，
+  在光照下变成纯白色表面。
+- 切换「CROWS/MK19 Instead Of M2」后会重新加载武器站模型，而不再用旧外壳配上新武器的瞄具与弹药。
+- CROWS 座位高度改为四个互相独立的绝对常量——MK19 前座 1.2955 / 侧座 1.15，.50 cal 前座 0.9855 /
+  侧座 0.84——调整其中一个不会带动另一个。
+- 指挥官摄像机位在两种摆放方式下都按绝对值写入，原版偏移按车记录一次，两种摆放不会互相污染。
+
 ## [1.4.6] — 2026-10-25
 
 ### Changed

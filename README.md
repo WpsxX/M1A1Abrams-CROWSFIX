@@ -30,6 +30,13 @@ Fixes CITV.
 
 Fixes CROWS.
 
+# What's new in 1.4.7
+- Fixed the Mk 19 station rendering as flat pale grey: its materials are rebuilt on the game's own Standard shader with the albedo, normal and metal/gloss maps re-bound, and the asset bundle is kept alive for the whole session.
+- Fixed the .50 cal station turning dark and plasticky: the material rebuild only touches the Mk 19 materials.
+- Fixed the four CROWS seat heights - they are independent absolute constants again, so tuning one weapon no longer moves the other.
+- Fixed switching "CROWS/MK19 Instead Of M2" mounting the old station model with the new weapon's sight and ammunition.
+- Fixed the commander camera slot of the two placements leaking into each other.
+
 # What's new in 1.4.6
 - Replaced the CROWS and M2 models, with the textures rebuilt at 2048.
 - Fixed the CROWS body and the M2 wooden grips rendering washed-out grey.

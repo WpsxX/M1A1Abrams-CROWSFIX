@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using GHPC;
@@ -33,6 +33,10 @@ namespace M1A1Abrams
     /// </summary>
     internal static partial class CROWS
     {
+        // Vanilla commander-slot offset per vehicle, recorded before we ever move it. Keeps the two
+        // CROWS placements independent: byte-identical bookkeeping for both modes.
+        private static readonly Dictionary<int, Vector3> vanilla_commander_slots = new Dictionary<int, Vector3>();
+
         private static bool MountInternal(Vehicle vic, Transform origin, Vector3 position, bool alt_placement, UsableOptic main_gun_thermal)
         {
             GameObject model = UnityEngine.Object.Instantiate(crows_prefab, origin);
@@ -601,17 +605,30 @@ namespace M1A1Abrams
                 Reflect.Call(CameraManager.Instance, "RescanCamSlots", new object[] { vic.DesignatedCameraSlots });
             }
 
-            if (!alt_placement)
-            {
-                // The station sits where the commander's hatch was, so his view moves back.
-                Transform commander_slot = vic.DesignatedCameraSlots.Length > 0
-                    ? vic.DesignatedCameraSlots[0].transform
-                    : null;
+            // The commander's slot is written to an ABSOLUTE offset on every mount, whichever placement
+            // is active, so the two modes cannot leak into each other:
+            //   alt on  -> the vanilla slot offset, restored verbatim;
+            //   alt off -> our pushed-back offset, because the station then sits on the hatch ring.
+            // The vanilla value is captured the first time this vehicle is seen, before anything else
+            // can move it, so a second mount in the same mission cannot inherit the other mode's offset.
+            Transform commander_slot = vic.DesignatedCameraSlots.Length > 0
+                ? vic.DesignatedCameraSlots[0].transform
+                : null;
 
-                if (commander_slot != null)
+            if (commander_slot != null)
+            {
+                int commander_vehicle = vic.GetInstanceID();
+                Vector3 vanilla_slot;
+
+                if (!vanilla_commander_slots.TryGetValue(commander_vehicle, out vanilla_slot))
                 {
-                    commander_slot.localPosition = new Vector3(-0.1538f, 0.627f, -0.05f);
+                    vanilla_slot = commander_slot.localPosition;
+                    vanilla_commander_slots[commander_vehicle] = vanilla_slot;
                 }
+
+                commander_slot.localPosition = alt_placement
+                    ? vanilla_slot
+                    : new Vector3(-0.1538f, 0.627f, -0.05f);
             }
 
             StaticWhenNotInUse fix = fcs.gameObject.AddComponent<StaticWhenNotInUse>();

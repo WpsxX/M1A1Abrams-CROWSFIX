@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using GHPC;
@@ -760,7 +760,11 @@ namespace M1A1Abrams
         {
             setup_failures.Clear();
             // Keep the asset-bundle model; rebuild ammo references for the current mission.
-            if (!initialised)
+            // The prefab has to match the selected weapon: an .50 cal station left over from the
+            // previous session's setting would be mounted with the Mk 19 sight and Mk 19 ammo.
+            bool mk19_selected = M1A1.crows_mk19 != null && M1A1.crows_mk19.Value;
+
+            if (!initialised || loaded_mk19 != mk19_selected)
             {
                 try
                 {
